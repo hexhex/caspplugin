@@ -1,5 +1,5 @@
 AC_PREREQ([2.61])
-AC_INIT([dlvhex-caspplugin],[1.0.0],[dlvhex-devel@lists.sourceforge.net])
+AC_INIT([dlvhex-caspplugin],[0.0.1],[dlvhex-devel@lists.sourceforge.net])
 AC_CONFIG_SRCDIR([src/caspplugin.cpp])
 AC_CONFIG_HEADERS([src/config.h])
 
