@@ -10,29 +10,26 @@
 
 #include <string>
 
-struct ParseTree;
+enum ElementType {
+	NUMBER, CONSTRAINT_VARIABLE, ASP_VARIABLE, OPERATOR
+};
 
 struct ParseTree {
-	char value;
-	ParseTree *leftOperand;
-	ParseTree *rightOperand;
+	char *value;
+	struct ParseTree *left, *right;
+	ElementType type;
 };
 
 const int MAX = 500;
 
 class SimpleParser {
 private:
-	char target[MAX], stack[MAX];
-	char *s, *t;
-	int top;
+	int isOperator(char e);
+	int priority(char e);
+	void convertToPostfix(char* infix, char * postfix);
 public:
 	SimpleParser();
-	void setexpr(char *str);
-	void push(char c);
-	char pop();
-	void convert();
-	int priority(char c);
-	ParseTree* makeTree();
+	void makeTree(char *infix, struct ParseTree** root);
 };
 
 #endif /* SIMPLEPARSER_H_ */

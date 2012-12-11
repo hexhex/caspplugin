@@ -13,19 +13,19 @@
 #include <gecode/minimodel.hh>
 
 #include <string>
+#include <map>
 
 #include "simpleparser.h"
 
 class GecodeSolver: public Gecode::Space {
 public:
 	/// Actual model
-	GecodeSolver(std::string expression);
-
-	virtual void print(std::ostream& os) const {
-	}
+	GecodeSolver(std::vector<std::string> expressions, std::string domain);
 
 	GecodeSolver(bool share, GecodeSolver& s) :
-			Space(share, s) {
+			Space(share, s), minValue(s.minValue),
+			maxValue(s.maxValue),
+			constraintVariables(s.constraintVariables) {
 	}
 
 	virtual Space*
@@ -33,7 +33,10 @@ public:
 		return new GecodeSolver(share, *this);
 	}
 private:
-	Gecode::IntVar* makeExpression(ParseTree* tree);
+	int minValue, maxValue;
+	std::map<std::string, Gecode::IntVar> constraintVariables;
+
+	Gecode::LinExpr makeExpression(ParseTree* tree);
 };
 
 
