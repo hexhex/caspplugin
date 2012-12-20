@@ -95,7 +95,7 @@ void CaspConverter::convert(istream& i, ostream& o) {
 		}
 
 		o << result << endl;
-		o << result << ":- not &casp(expr,dom).";
+		o << result << ":- not &casp[expr,dom].";
 
 		result = "";
 	}
