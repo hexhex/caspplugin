@@ -1,5 +1,7 @@
 #include "config.h"
+
 #include "casp/gecodesolver.h"
+#include "casp/caspconverter.h"
 
 #include <dlvhex2/PluginInterface.h>
 #include <dlvhex2/Term.h>
@@ -41,6 +43,8 @@ namespace dlvhex {
 			{
 				Registry &registry = *getRegistry();
 
+				registry.print(std::cout);
+
 				const Term& expressionTerm = registry.terms.getByID(query.input[0]);
 				const Term& domainTerm = registry.terms.getByID(query.input[1]);
 
@@ -71,19 +75,6 @@ namespace dlvhex {
 					Tuple out;
 					answer.get().push_back(out);
 				}
-
-				/*std::string res;
-
-				if (solutions.next()) {
-					res = "ok";
-				}
-				else
-					res = "failed";
-
-				Tuple out;
-				Term newterm(ID::MAINKIND_TERM | ID::SUBKIND_TERM_CONSTANT, '"' + res + '"');
-				out.push_back(registry.storeTerm(newterm));
-				answer.get().push_back(out);*/
 			}
 	};
     
@@ -92,9 +83,12 @@ namespace dlvhex {
 	//
 	class CASPPlugin : public PluginInterface
     {
+		private:
+			boost::shared_ptr<CaspConverter> converter;
+
 		public:
       
-    		CASPPlugin()
+    		CASPPlugin() : converter(new CaspConverter())
 			{
 				setNameVersion(PACKAGE_TARNAME,CASPPLUGIN_VERSION_MAJOR,CASPPLUGIN_VERSION_MINOR,CASPPLUGIN_VERSION_MICRO);
 			}
@@ -113,7 +107,11 @@ namespace dlvhex {
 			{
 			
 			}
-      
+
+			virtual PluginConverterPtr createConverter(ProgramCtx& ctx) {
+				return converter;
+			}
+
 	};
     
     
