@@ -54,7 +54,7 @@ void CaspConverter::convert(istream& i, ostream& o) {
 			} else if (isSeparator((char) input[i])) {
 				if (caspExpression) {
 					string currentExpression = "";
-					currentExpression += "expr(\"" + temp;
+					currentExpression += "expr_2(\"" + temp;
 					currentExpression += "\"";
 					for (set<string>::iterator it = variables.begin();
 							it != variables.end(); it++) {
@@ -84,6 +84,7 @@ void CaspConverter::convert(istream& i, ostream& o) {
 					if (input[j] == ')') s += "\"";
 					s += input[j];
 					if (input[j] == '(') s += "\"";
+					if (input[j] == 'm') s += "_2";
 				}
 				o << s << endl;
 
