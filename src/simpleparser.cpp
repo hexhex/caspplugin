@@ -13,190 +13,116 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define MAX 50
-#define EMPTY -1
+#include <boost/tokenizer.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 using namespace std;
+using namespace boost;
 
 SimpleParser::SimpleParser() {
 }
 
-struct basic_stack
+int SimpleParser::priority(string s)
 {
-	char data[MAX];
-	int top;
-};
-
-int isempty(struct basic_stack *s)
-{
-	return (s->top == EMPTY) ? 1 : 0;
-}
-
-void emptystack(struct basic_stack* s)
-{
-	s->top=EMPTY;
-}
-
-void push(struct basic_stack* s,int item)
-{
-	if(s->top == (MAX-1))
-	{
-		printf("\nSTACK FULL");
-	}
-	else
-	{
-		++s->top;
-		s->data[s->top]=item;
-	}
-}
-
-char pop(struct basic_stack* s)
-{
-	char ret=(char)EMPTY;
-	if(!isempty(s))
-	{
-		ret= s->data[s->top];
-		--s->top;
-	}
-	return ret;
-}
-
-int SimpleParser::priority(char e)
-{
-	if(e == '*' || e == '/' || e =='%')
+	if(s == "*" || s == "/" || s =="%")
 		return 3;
-	else if(e == '+' || e == '-')
+	else if(s == "+" || s == "-")
 		return 2;
-	else if(e == '=' || e == '>' || e == '<')
+	else if(s == "==" || s == ">" || s == "<" || s == "<=" || s == ">=" || s == "=")
 		return 1;
 
 	return 0;
 }
 
-int SimpleParser::isOperator(char e)
+
+int SimpleParser::isOperator(string s)
 {
-	return priority(e) != 0;
+	return priority(s) != 0;
 }
 
-void SimpleParser::convertToPostfix(char* infix, char * postfix)
+string SimpleParser::convertToPostfix(string infix)
 {
-	char *i,*p;
-	struct basic_stack X;
-	char n1;
-	emptystack(&X);
-	i = &infix[0];
-	p = &postfix[0];
+	string p;
 
-	while(*i)
-	{
-		while(*i == ' ' || *i == '\t')
-		{
-			i++;
+	stack<string> x;
+
+	char_separator<char> sep(" ", ",v.:-$%+-*/<>=()", drop_empty_tokens);
+
+	tokenizer<char_separator<char> > tokens(infix, sep);
+	vector<string> tokenList;
+
+	for ( tokenizer<char_separator<char> >::iterator it = tokens.begin(); it != tokens.end(); ++it) {
+		string token = *it;
+		tokenList.push_back(token);
+	}
+	for (int i = 0; i < tokenList.size(); i++) {
+		string token = tokenList[i];
+
+		if (token == "(") {
+			x.push(token);
 		}
+		else if (token == ")") {
+			string n1 = x.top();
+			x.pop();
 
-		if( isdigit(*i) || isalpha(*i) )
-		{
-			while( isdigit(*i) || isalpha(*i))
-			{
-				*p = *i;
-				p++;
+			while (n1 != "(") {
+				p += n1 + " ";
+				n1 = x.top();
+				x.pop();
+			}
+		}
+		else if (isOperator(token)) {
+			// check whether next token is also operator
+			if (i < tokenList.size() - 1 && isOperator(tokenList[i+1])) {
+				token += tokenList[i+1];
 				i++;
 			}
-			*p = ' ';
-			p++;
-		}
 
-		if( *i == '(' )
-		{
-			push(&X,*i);
-			i++;
-		}
+			if (x.empty())
+				x.push(token);
+			else {
+				string n1 = x.top();
 
-		if( *i == ')')
-		{
-			n1 = pop(&X);
-			while( n1 != '(' )
-			{
-				*p = n1;
-				p++;
-				*p = ' ';
-				p++;
-				n1 = pop(&X);
-			}
-			i++;
-		}
+				while (priority(n1) >= priority(token)) {
+					x.pop();
 
-		if( isOperator(*i) )
-		{
-			if(isempty(&X))
-				push(&X,*i);
-			else
-			{
-				n1 = pop(&X);
-				while(priority(n1) >= priority(*i))
-				{
-					*p = n1;
-					p++;
-					*p = ' ';
-					p++;
-					n1 = pop(&X);
+					p += n1 + " ";
+
+					if (x.empty()) break;
+
+					n1 = x.top();
 				}
-				push(&X,n1);
-				push(&X,*i);
+				x.push(token);
 			}
-			i++;
+		}
+		else {
+			p += token + " ";
 		}
 	}
-	while(!isempty(&X))
+
+	while(!x.empty())
 	{
-		n1 = pop(&X);
-		*p = n1;
-		p++;
-		*p = ' ';
-		p++;
+		string n1 = x.top();
+		x.pop();
+
+		p += n1 + " ";
 	}
-	*p = '\0';
+
+	return p;
 }
 
-void SimpleParser::makeTree(char *infix, struct ParseTree** root) {
-	char postfix[MAX] = { 0 };
-	convertToPostfix(infix, postfix);
+void SimpleParser::makeTree(string infix, struct ParseTree** root) {
+	string postfix = convertToPostfix(infix);
 
 	stack<ParseTree*> elems;
 
 	ParseTree *newTree, *left, *right;
 
-	char *p = &postfix[0];
+	istringstream in(postfix);
 
-	char data[MAX];
-	char *current = data;
-	ElementType currentType = NUMBER;
-
-	while (*p) {
-		if (isdigit(*p)) {
-			*current = *p;
-			current++;
-		}
-		else if (isalpha(*p)) {
-			*current = *p;
-			current++;
-			currentType = CONSTRAINT_VARIABLE;
-		}
-		else if (*p == ' ' && current!=data) {
-			// Finish current
-			newTree = (ParseTree*)malloc(sizeof(struct ParseTree));
-			*current = '\0';
-			current++;
-
-			newTree->value = (char*) malloc(sizeof(char)*strlen(data));
-			newTree->type = currentType;
-			strcpy(newTree->value, data);
-
-			elems.push(newTree);
-			current = data;
-			currentType = NUMBER;
-		}
-		else if (isOperator(*p)) {
+	string s;
+	while (in>>s) {
+		if (isOperator(s)) {
 			// Add new element
 			right = elems.top();
 			elems.pop();
@@ -204,21 +130,39 @@ void SimpleParser::makeTree(char *infix, struct ParseTree** root) {
 			left = elems.top();
 			elems.pop();
 
-			newTree = (ParseTree*) malloc(sizeof(struct ParseTree));
+			newTree = new ParseTree;
 
-			newTree->value = (char*) malloc(sizeof(char)*2);
-			newTree->value[0] = *p;
-			newTree->value[1] = '\0';
-
+			newTree->value = s;
 			newTree->left = left;
 			newTree->right = right;
-
 			newTree->type = OPERATOR;
 
 			elems.push(newTree);
 		}
-		p++;
+
+		else {
+			newTree = new ParseTree;
+
+			newTree->value = s;
+
+			ElementType type = NUMBER;
+
+			for (int i = 0; i < s.length(); i++)
+				if (!isdigit(s[i])) type = CONSTRAINT_VARIABLE;
+
+			newTree->type = type;
+
+			elems.push(newTree);
+		}
 	}
 	*root = elems.top();
 	elems.pop();
+}
+
+void SimpleParser::deleteTree(ParseTree* root) {
+	if (root->type == OPERATOR) {
+		deleteTree(root->left);
+		deleteTree(root->right);
+	}
+	delete root;
 }

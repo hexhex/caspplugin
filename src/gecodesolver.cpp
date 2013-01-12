@@ -9,6 +9,7 @@
 #include <map>
 
 #include <gecode/driver.hh>
+
 #include <gecode/int.hh>
 #include <gecode/minimodel.hh>
 
@@ -17,40 +18,56 @@
 #include <boost/tokenizer.hpp>
 
 using namespace Gecode;
+using namespace std;
 
-GecodeSolver::GecodeSolver(std::vector<std::string> expressions, std::string domain) {
+GecodeSolver::GecodeSolver(vector<string> expressions, string domain, string globalConstraintName, string globalConstraintValue) {
+	if (domain == "") domain = "1..10";
+
 	typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
 	boost::char_separator<char> sep("\".");
 	tokenizer tokens(domain, sep);
 	tokenizer::iterator tok_iter = tokens.begin();
 
-	std::string stringMinValue = *tok_iter++;
-	std::string stringMaxValue = *tok_iter++;
+	string stringMinValue = *tok_iter++;
+	string stringMaxValue = *tok_iter++;
 
 	minValue = atoi(stringMinValue.c_str());
 	maxValue = atoi(stringMaxValue.c_str());
 
 	SimpleParser parser;
 
-	for (std::vector<std::string>::iterator it = expressions.begin(); it != expressions.end(); it++) {
-		std::string expression = *it;
-
-		char * expr = new char[expression.size() - 1];
-		std::copy(expression.begin() + 1, expression.end() - 1, expr);
-		expr[expression.size() - 2] = '\0';
+	for (vector<string>::iterator it = expressions.begin(); it != expressions.end(); it++) {
+		string expression = *it;
 
 		ParseTree* tree;
-		parser.makeTree(expr, &tree);
+		parser.makeTree(expression, &tree);
 
 		LinExpr leftExpression = makeExpression(tree->left);
 		LinExpr rightExpression = makeExpression(tree->right);
 
-		if (tree->value[0] == '=')
+		if (tree->value == "==")
 			rel(*this, leftExpression == rightExpression);
-		else if (tree->value[0] == '>')
+		else if (tree->value == ">")
 			rel(*this, leftExpression > rightExpression);
-		else if (tree->value[0] == '<')
+		else if (tree->value == "<")
 			rel(*this, leftExpression < rightExpression);
+		else if (tree->value == ">=")
+			rel(*this, leftExpression >= rightExpression);
+		else if (tree->value == "<=")
+			rel(*this, leftExpression <= rightExpression);
+
+		parser.deleteTree(tree);
+	}
+
+	if (globalConstraintName != "") {
+		ParseTree* tree;
+		parser.makeTree(globalConstraintValue, &tree);
+		LinExpr globalConstraintExpression = makeExpression(tree);
+
+		if (globalConstraintName == "maximize")
+			costVariable = expr(*this, globalConstraintExpression);
+		if (globalConstraintName == "minimize")
+			costVariable = expr(*this, -globalConstraintExpression);
 	}
 }
 
@@ -59,24 +76,24 @@ Gecode::LinExpr GecodeSolver::makeExpression(ParseTree* tree) {
 		LinExpr leftVariable = makeExpression(tree->left);
 		LinExpr rightVariable = makeExpression(tree->right);
 
-		char op = tree->value[0];
+		string op = tree->value;
 
-		if (op == '+') return leftVariable + rightVariable;
-		else if (op == '-') return leftVariable - rightVariable;
-		else if (op == '*') return leftVariable * rightVariable;
-		else if (op == '/') return leftVariable / rightVariable;
+		if (op == "+") return leftVariable + rightVariable;
+		else if (op == "-") return leftVariable - rightVariable;
+		else if (op == "*") return leftVariable * rightVariable;
+		else if (op == "/") return leftVariable / rightVariable;
 		else throw "Invalid operator";
 	}
 	else if(tree->type == NUMBER) {
-		int value = atoi(tree->value);
+		int value = atoi(tree->value.c_str());
 
 		Gecode::IntVar var(*this, value, value);
 		return var;
 	}
 	else if(tree->type == CONSTRAINT_VARIABLE) {
-		std::string variableName = tree->value;
+		string variableName = tree->value;
 
-		std::map<std::string,Gecode::IntVar>::iterator it = constraintVariables.find(variableName);
+		map<string,Gecode::IntVar>::iterator it = constraintVariables.find(variableName);
 		if (it == constraintVariables.end()) { // create fresh variable
 			Gecode::IntVar var(*this, minValue, maxValue);
 			constraintVariables[variableName] = var;

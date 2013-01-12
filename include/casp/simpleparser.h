@@ -10,12 +10,14 @@
 
 #include <string>
 
+using namespace std;
+
 enum ElementType {
-	NUMBER, CONSTRAINT_VARIABLE, ASP_VARIABLE, OPERATOR
+	NUMBER, CONSTRAINT_VARIABLE, OPERATOR
 };
 
 struct ParseTree {
-	char *value;
+	string value;
 	struct ParseTree *left, *right;
 	ElementType type;
 };
@@ -24,12 +26,13 @@ const int MAX = 500;
 
 class SimpleParser {
 private:
-	int isOperator(char e);
-	int priority(char e);
-	void convertToPostfix(char* infix, char * postfix);
+	int isOperator(string s);
+	int priority(string s);
+	string convertToPostfix(string infix);
 public:
 	SimpleParser();
-	void makeTree(char *infix, struct ParseTree** root);
+	void makeTree(string infix, struct ParseTree** root);
+	void deleteTree(struct ParseTree* root);
 };
 
 #endif /* SIMPLEPARSER_H_ */

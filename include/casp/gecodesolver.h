@@ -17,24 +17,33 @@
 
 #include "simpleparser.h"
 
-class GecodeSolver: public Gecode::Space {
+using namespace std;
+
+class GecodeSolver: public Gecode::MaximizeSpace {
 public:
 	/// Actual model
-	GecodeSolver(std::vector<std::string> expressions, std::string domain);
+	GecodeSolver(vector<string> expressions, string domain, string globalConstraintName, string globalConstraintValue);
 
 	GecodeSolver(bool share, GecodeSolver& s) :
-			Space(share, s), minValue(s.minValue),
+			Gecode::MaximizeSpace(share, s),
+			minValue(s.minValue),
 			maxValue(s.maxValue),
-			constraintVariables(s.constraintVariables) {
+			constraintVariables(s.constraintVariables),
+			costVariable(s.costVariable) {
 	}
 
-	virtual Space*
+	virtual Gecode::Space*
 	copy(bool share) {
 		return new GecodeSolver(share, *this);
 	}
+	virtual Gecode::IntVar cost() const {
+		return costVariable;
+	}
 private:
-	int minValue, maxValue;
-	std::map<std::string, Gecode::IntVar> constraintVariables;
+	int minValue;
+	int maxValue;
+	map<string, Gecode::IntVar> constraintVariables;
+	Gecode::IntVar costVariable;
 
 	Gecode::LinExpr makeExpression(ParseTree* tree);
 };

@@ -23,7 +23,9 @@
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
-#include <boost/thread/shared_mutex.hpp>
+#include <boost/tokenizer.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+
 
 namespace dlvhex {
   namespace casp {
@@ -33,7 +35,8 @@ namespace dlvhex {
 		public:
 			ConsistencyAtom() : PluginAtom( "casp", 1)
 			{
-				addInputConstant();
+				for (int i = 0; i < 14; i++)
+					addInputPredicate();
 				
 				setOutputArity(0);
 			}
@@ -43,38 +46,73 @@ namespace dlvhex {
 			{
 				Registry &registry = *getRegistry();
 
-				registry.print(std::cout);
+				query.interpretation->print(std::cout);
 
-				const Term& expressionTerm = registry.terms.getByID(query.input[0]);
-				const Term& domainTerm = registry.terms.getByID(query.input[1]);
-
-				std::pair<OrdinaryAtomTable::AddressIterator, OrdinaryAtomTable::AddressIterator> all = registry.ogatoms.getAllByAddress();
-				OrdinaryAtomTable::AddressIterator begin = all.first;
-				OrdinaryAtomTable::AddressIterator end = all.second;
+				std::pair<Interpretation::TrueBitIterator, Interpretation::TrueBitIterator>
+					trueAtoms = query.extinterpretation->trueBits();
 
 				std::vector<std::string> expressions;
-				std::string domain;
+				std::string domain = "";
+				std::string globalConstraintName = "";
+				std::string globalConstraintValue = "";
 
-				for (OrdinaryAtomTable::AddressIterator it = begin; it != end; it++) {
-					const OrdinaryAtom &atom = *it;
+				for (Interpretation::TrueBitIterator it = trueAtoms.first; it != trueAtoms.second; it++) {
+					const OrdinaryAtom &atom = query.interpretation->getAtomToBit(it);
 					Term name = registry.terms.getByID(atom.tuple[0]);
-					if (name.symbol == expressionTerm.symbol) {
+
+					if (boost::starts_with(name.symbol,"expr")) {
 						Term value = registry.terms.getByID(atom.tuple[1]);
-						expressions.push_back(value.symbol);
+						std::string expr = value.symbol;
+
+						int variableIndex = 2;
+
+						boost::char_separator<char> sep(" ", ",v.:-$%<>=+-/*\"", boost::drop_empty_tokens);
+
+						std::string result = "";
+						boost::tokenizer<boost::char_separator<char> > tokens(expr, sep);
+						for ( boost::tokenizer<boost::char_separator<char> >::iterator it = tokens.begin(); it != tokens.end(); ++it) {
+							std::string val = *it;
+							if (isVariable(val)) result += registry.terms.getByID(atom.tuple[variableIndex++]).symbol;
+							else result += val;
+						}
+
+						expressions.push_back(removeQuotes(result));
+
 					}
-					if (name.symbol == domainTerm.symbol) {
-						Term value = registry.terms.getByID(atom.tuple[1]);
-						domain = value.symbol;
+					if (name.symbol == "dom") {
+						domain = removeQuotes(registry.terms.getByID(atom.tuple[1]).symbol);
+					}
+					if (name.symbol == "maximize" || name.symbol == "minimize") {
+						globalConstraintName = name.symbol;
+
+						globalConstraintValue = removeQuotes(registry.terms.getByID(atom.tuple[1]).symbol);
 					}
 				}
-
-				GecodeSolver* solver = new GecodeSolver(expressions, domain);
+				GecodeSolver* solver = new GecodeSolver(expressions, domain, globalConstraintName, globalConstraintValue);
 				Gecode::DFS<GecodeSolver> solutions(solver);
 
 				if (solutions.next()) {
+					cout << "Casp sol. exists!" << endl;
 					Tuple out;
 					answer.get().push_back(out);
 				}
+			}
+		private:
+			bool isVariable(string s) {
+				bool res = true;
+				if (s[0] >= 'A' && s[0] <= 'Z') {
+					for (int i = 1; i < s.length(); i++) {
+						if (!isalnum(s[i]) && s[i] != '_') {
+							res = false;
+							break;
+						}
+					}
+				}
+				else res = false;
+				return res;
+			}
+			string removeQuotes(string s) {
+				return s.substr(1, s.length() - 2);
 			}
 	};
     
@@ -111,7 +149,6 @@ namespace dlvhex {
 			virtual PluginConverterPtr createConverter(ProgramCtx& ctx) {
 				return converter;
 			}
-
 	};
     
     
