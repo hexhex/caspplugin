@@ -1,10 +1,3 @@
-/*
- * caspconverter.cpp
- *
- *  Created on: Dec 17, 2012
- *      Author: faeton
- */
-
 #include "casp/caspconverter.h"
 #include <boost/tokenizer.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -109,13 +102,10 @@ void CaspConverter::convert(istream& i, ostream& o) {
 						token = *it;
 
 						if (isSeparator(token)) {
-							string resultingExpression;
-							resultingExpression += "expr" + variables.size() + "(\"" + caspExpression + "\"";
+							o << "expr" << variables.size() << "(\"" << caspExpression << "\"";
 							for (int i = 0; i < variables.size(); i++)
-								resultingExpression += "," + variables[i];
-							resultingExpression += ")" + token;
-
-							o << resultingExpression;
+								o << "," << variables[i];
+							o << ")" << token;
 
 							break;
 						} else if (token != "$") {
@@ -132,13 +122,11 @@ void CaspConverter::convert(istream& i, ostream& o) {
 				expressions.push_back(token);
 			}
 		}
+		for (int i = 0; i < expressions.size(); i++)
+			o << expressions[i];
+		o << endl;
+		expressions.clear();
 	}
-}
-for (int i = 0; i < expressions.size(); i++)
-	o << expressions[i];
-o << endl;
-expressions.clear();
-}
 
-o << ":- not &casp[expr0,expr1,expr2,expr3,expr4,expr5,expr6,expr7,expr8,expr9,expr10,dom,maximize,minimize]()." << endl;
+	o << ":- not &casp[expr0,expr1,expr2,expr3,expr4,expr5,expr6,expr7,expr8,expr9,expr10,dom,maximize,minimize]()." << endl;
 }

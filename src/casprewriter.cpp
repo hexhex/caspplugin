@@ -43,10 +43,11 @@ void CaspRewriter::rewriteRule(ProgramCtx& ctx, vector<ID>& idb, ID ruleID) {
 
 		vector<ID> newBody = rule.body;
 
-		if (rule.head.size() != 0) {
-			ID nafLiteral = ID::nafLiteralFromAtom(rule.head[0]);
-			newBody.push_back(nafLiteral);
-		}
+//		if (rule.head.size() != 0) {
+//			ID nafLiteral = ID::nafLiteralFromAtom(rule.head[0]);
+//			newBody.push_back(nafLiteral);
+//			newBody.push_back(rule.head[0]);
+//		}
 
 		vector<ID> bodyWithoutCasp;
 		vector<ID> caspIds;
@@ -93,4 +94,6 @@ void CaspRewriter::rewrite(ProgramCtx& ctx) {
 		rewriteRule(ctx, newIdb, rid);
 	}
 	ctx.idb = newIdb;
+
+//	ctx.registry()->print(cout);
 }

@@ -2,6 +2,7 @@
 
 #include "casp/gecodesolver.h"
 #include "casp/caspconverter.h"
+#include "casp/casprewriter.h"
 
 #include <dlvhex2/PluginInterface.h>
 #include <dlvhex2/Term.h>
@@ -14,15 +15,6 @@
 #include <gecode/minimodel.hh>
 
 #include <string>
-#include <sstream>
-#include <cstdio>
-#include <utility>
-
-#include <boost/multi_index/member.hpp>
-#include <boost/multi_index/mem_fun.hpp>
-#include <boost/multi_index/hashed_index.hpp>
-#include <boost/multi_index/random_access_index.hpp>
-#include <boost/multi_index_container.hpp>
 #include <boost/tokenizer.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
@@ -46,8 +38,6 @@ namespace dlvhex {
 			{
 				Registry &registry = *getRegistry();
 
-				query.interpretation->print(std::cout);
-
 				std::pair<Interpretation::TrueBitIterator, Interpretation::TrueBitIterator>
 					trueAtoms = query.extinterpretation->trueBits();
 
@@ -66,13 +56,24 @@ namespace dlvhex {
 
 						int variableIndex = 2;
 
-						boost::char_separator<char> sep(" ", ",v.:-$%<>=+-/*\"", boost::drop_empty_tokens);
+						boost::char_separator<char> sep(" ", ",v.:-$%<>=+-/*\"<>=", boost::drop_empty_tokens);
 
 						std::string result = "";
 						boost::tokenizer<boost::char_separator<char> > tokens(expr, sep);
 						for ( boost::tokenizer<boost::char_separator<char> >::iterator it = tokens.begin(); it != tokens.end(); ++it) {
 							std::string val = *it;
-							if (isVariable(val)) result += registry.terms.getByID(atom.tuple[variableIndex++]).symbol;
+							if (isVariable(val)) {
+								string res;
+								ID id = atom.tuple[variableIndex++];
+								if (id.isIntegerTerm()) {
+									ostringstream os(res);
+									os << id.address;
+									res = os.str();
+								}
+								else
+									res = registry.terms.getByID(atom.tuple[variableIndex]).symbol;
+								result += res;
+							}
 							else result += val;
 						}
 
@@ -92,7 +93,6 @@ namespace dlvhex {
 				Gecode::DFS<GecodeSolver> solutions(solver);
 
 				if (solutions.next()) {
-					cout << "Casp sol. exists!" << endl;
 					Tuple out;
 					answer.get().push_back(out);
 				}
@@ -123,10 +123,11 @@ namespace dlvhex {
     {
 		private:
 			boost::shared_ptr<CaspConverter> converter;
+			boost::shared_ptr<CaspRewriter> rewriter;
 
 		public:
       
-    		CASPPlugin() : converter(new CaspConverter())
+    		CASPPlugin() : converter(new CaspConverter()), rewriter(new CaspRewriter())
 			{
 				setNameVersion(PACKAGE_TARNAME,CASPPLUGIN_VERSION_MAJOR,CASPPLUGIN_VERSION_MINOR,CASPPLUGIN_VERSION_MICRO);
 			}
@@ -148,6 +149,10 @@ namespace dlvhex {
 
 			virtual PluginConverterPtr createConverter(ProgramCtx& ctx) {
 				return converter;
+			}
+
+			virtual PluginRewriterPtr createRewriter(ProgramCtx& ctx) {
+				return rewriter;
 			}
 	};
     
