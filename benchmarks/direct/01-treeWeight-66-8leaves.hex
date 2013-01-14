@@ -1,8 +1,8 @@
 % Declarative encoding 
 
 %Part 1. General declaration
-%position(X) :- X >= 0, X<N, #int(X), num(N).
-%coloredPos(X) :- X >= 1, X<N, #int(X), num(N).
+position(X) :- X >= 0, X<N, #int(X), num(N).
+coloredPos(X) :- X >= 1, X<N, #int(X), num(N).
 leaf(L) :- leafWeightCardinality(L,W,C).
 
 % Assign each leaf a position
@@ -33,7 +33,6 @@ seqCost(P, Cost) :- coloredPos(P), P > 1, PreP = P-1, seqCost(PreP,C), posCost(P
 exists :- PreN = N-1, seqCost(PreN, Cost), num(N), Cost <= M, max_total_weight(M).
 :- not exists.
 
-%Input data
 leafWeightCardinality(1,5,0).
 leafWeightCardinality(2,5,9).
 leafWeightCardinality(3,7,7).
@@ -43,22 +42,9 @@ leafWeightCardinality(6,7,1).
 leafWeightCardinality(7,4,7).
 leafWeightCardinality(8,8,5).
 num(8).
-max_total_weight(56).
+#maxint=8.
+max_total_weight(66).
 color(red).
-color(blue).
 color(green).
-position(0).
-position(1).
-position(2).
-position(3).
-position(4).
-position(5).
-position(6).
-position(7).
-coloredPos(1).
-coloredPos(2).
-coloredPos(3).
-coloredPos(4).
-coloredPos(5).
-coloredPos(6).
-coloredPos(7).
+color(blue).
+

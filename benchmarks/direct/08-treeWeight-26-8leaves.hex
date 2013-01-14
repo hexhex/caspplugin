@@ -33,14 +33,14 @@ seqCost(P, Cost) :- coloredPos(P), P > 1, PreP = P-1, seqCost(PreP,C), posCost(P
 exists :- PreN = N-1, seqCost(PreN, Cost), num(N), Cost <= M, max_total_weight(M).
 :- not exists.
 
-leafWeightCardinality(1,9,8).
-leafWeightCardinality(2,8,9).
-leafWeightCardinality(3,9,3).
-leafWeightCardinality(4,9,7).
-leafWeightCardinality(5,1,1).
-leafWeightCardinality(6,4,2).
-leafWeightCardinality(7,8,4).
-leafWeightCardinality(8,1,6).
+leafWeightCardinality(1,7,4).
+leafWeightCardinality(2,0,11).
+leafWeightCardinality(3,10,5).
+leafWeightCardinality(4,1,9).
+leafWeightCardinality(5,9,1).
+leafWeightCardinality(6,2,0).
+leafWeightCardinality(7,0,5).
+leafWeightCardinality(8,5,3).
 innerNode(1).
 innerNode(2).
 innerNode(3).
@@ -53,4 +53,4 @@ num(8).
 color(red).
 color(green).
 color(blue).
-max_total_weight(56).
+max_total_weight(26).
