@@ -18,7 +18,7 @@ CaspConverter::~CaspConverter() {
 }
 
 bool isSeparator(string s) {
-	return s == "," || s == "v" || s == "." || s == ":" || s == "-" || s == "not";
+	return s == "," || s == "v" || s == "." || s == ":" || s == "-" || s == "not" || s == "!";
 }
 
 bool isVariable(string s) {
@@ -38,6 +38,8 @@ bool isVariable(string s) {
 void CaspConverter::convert(istream& i, ostream& o) {
 	vector<string> variables;
 	vector<string> expressions;
+
+	bool cspExpression = false;
 
 	string input;
 
@@ -69,6 +71,12 @@ void CaspConverter::convert(istream& i, ostream& o) {
 			if (token == "%") {
 				break;
 			} else if (token == "$") {
+				cspExpression = true;
+			} else {
+				expressions.push_back(token);
+			}
+
+			if (cspExpression) {
 				int mainOperatorLength = -1;
 				if (boost::starts_with(token, ">=") || boost::starts_with(token, "<=") || boost::starts_with(token, "=="))
 					mainOperatorLength = 2;
@@ -103,8 +111,9 @@ void CaspConverter::convert(istream& i, ostream& o) {
 
 						if (isSeparator(token)) {
 							o << "expr" << variables.size() << "(\"" << caspExpression << "\"";
-							for (int i = 0; i < variables.size(); i++)
+							for (int i = 0; i < variables.size(); i++) {
 								o << "," << variables[i];
+							}
 							o << ")" << token;
 
 							break;
@@ -116,17 +125,20 @@ void CaspConverter::convert(istream& i, ostream& o) {
 
 						it++;
 					}
+					cspExpression = false;
 				}
-			}
-			else {
-				expressions.push_back(token);
 			}
 		}
 		for (int i = 0; i < expressions.size(); i++)
 			o << expressions[i];
 		o << endl;
+
 		expressions.clear();
 	}
 
-	o << ":- not &casp[expr0,expr1,expr2,expr3,expr4,expr5,expr6,expr7,expr8,expr9,expr10,dom,maximize,minimize]()." << endl;
+	o << ":- not &casp[dom,maximize,minimize";
+	for (int i = 0; i < 11; i++) {
+		o << ",expr" << i << ",not_expr" << i;
+	}
+	o << "]()." << endl;
 }

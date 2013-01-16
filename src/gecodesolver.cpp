@@ -47,6 +47,8 @@ GecodeSolver::GecodeSolver(vector<string> expressions, string domain, string glo
 
 		if (tree->value == "==")
 			rel(*this, leftExpression == rightExpression);
+		else if (tree->value == "!=")
+			rel(*this, leftExpression != rightExpression);
 		else if (tree->value == ">")
 			rel(*this, leftExpression > rightExpression);
 		else if (tree->value == "<")

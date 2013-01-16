@@ -25,29 +25,21 @@ void CaspRewriter::rewriteRule(ProgramCtx& ctx, vector<ID>& idb, ID ruleID) {
 	const Rule& rule = reg->rules.getByID(ruleID);
 
 	bool needRewrite = false;
-	BOOST_FOREACH (ID headAtomId, rule.head) {
-		const OrdinaryAtom& atom = reg->lookupOrdinaryAtom(headAtomId);
-		if (boost::starts_with(atom.text, "expr")) needRewrite = true;
+	BOOST_FOREACH(ID atomId, rule.head) {
+		const OrdinaryAtom& atom = reg->lookupOrdinaryAtom(atomId);
+		if (boost::starts_with(atom.text, "expr"))
+			needRewrite = true;
 	}
-	BOOST_FOREACH (ID bodyAtomId, rule.body) {
-		if (!(bodyAtomId.isExternalAtom())) {
-			const OrdinaryAtom& atom = reg->lookupOrdinaryAtom(bodyAtomId);
+	BOOST_FOREACH(ID atomId, rule.body) {
+		if (!(atomId.isExternalAtom()) && !(atomId.isBuiltinAtom())) {
+			const OrdinaryAtom& atom = reg->lookupOrdinaryAtom(atomId);
 			if (boost::starts_with(atom.text, "expr"))
 				needRewrite = true;
 		}
 	}
 
 	if (needRewrite) {
-		// Move head to body
-		if (rule.head.size() > 1) throw PluginError("Constraints in disjunctive head are not implemented.");
-
 		vector<ID> newBody = rule.body;
-
-//		if (rule.head.size() != 0) {
-//			ID nafLiteral = ID::nafLiteralFromAtom(rule.head[0]);
-//			newBody.push_back(nafLiteral);
-//			newBody.push_back(rule.head[0]);
-//		}
 
 		vector<ID> bodyWithoutCasp;
 		vector<ID> caspIds;
@@ -73,9 +65,16 @@ void CaspRewriter::rewriteRule(ProgramCtx& ctx, vector<ID>& idb, ID ruleID) {
 
 			Term t = reg->terms.getByID(auxCaspAtom.tuple[0]);
 
-			t.symbol = "not_" + t.symbol;
+			string negatedSymbol = "not_" + t.symbol;
+			ID negatedId = reg->terms.getIDByString(negatedSymbol);
+			if (negatedId == ID_FAIL) {
+				t.symbol = negatedSymbol;
 
-			auxCaspAtom.tuple[0] = reg->terms.storeAndGetID(t);
+				auxCaspAtom.tuple[0] = reg->terms.storeAndGetID(t);
+			}
+			else {
+				auxCaspAtom.tuple[0] = negatedId;
+			}
 
 			ID hid = reg->storeOrdinaryAtom(auxCaspAtom);
 
@@ -85,8 +84,7 @@ void CaspRewriter::rewriteRule(ProgramCtx& ctx, vector<ID>& idb, ID ruleID) {
 			idb.push_back(newRuleID);
 		}
 	}
-	else
-		idb.push_back(ruleID);
+	idb.push_back(ruleID);
 }
 
 void CaspRewriter::rewrite(ProgramCtx& ctx) {
@@ -94,6 +92,4 @@ void CaspRewriter::rewrite(ProgramCtx& ctx) {
 		rewriteRule(ctx, newIdb, rid);
 	}
 	ctx.idb = newIdb;
-
-//	ctx.registry()->print(cout);
 }

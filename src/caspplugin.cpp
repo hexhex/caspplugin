@@ -17,7 +17,7 @@
 #include <string>
 #include <boost/tokenizer.hpp>
 #include <boost/algorithm/string/predicate.hpp>
-
+#include <boost/algorithm/string.hpp>
 
 namespace dlvhex {
   namespace casp {
@@ -27,7 +27,7 @@ namespace dlvhex {
 		public:
 			ConsistencyAtom() : PluginAtom( "casp", 1)
 			{
-				for (int i = 0; i < 14; i++)
+				for (int i = 0; i < 25; i++)
 					addInputPredicate();
 				
 				setOutputArity(0);
@@ -50,10 +50,17 @@ namespace dlvhex {
 					const OrdinaryAtom &atom = query.interpretation->getAtomToBit(it);
 					Term name = registry.terms.getByID(atom.tuple[0]);
 
+					std::string expr = "";
 					if (boost::starts_with(name.symbol,"expr")) {
 						Term value = registry.terms.getByID(atom.tuple[1]);
-						std::string expr = value.symbol;
+						expr = value.symbol;
+					}
+					if (boost::starts_with(name.symbol,"not_expr")) {
+						Term value = registry.terms.getByID(atom.tuple[1]);
+						expr = replaceInvertibleOperator(value.symbol);
+					}
 
+					if (expr != "") {
 						int variableIndex = 2;
 
 						boost::char_separator<char> sep(" ", ",v.:-$%<>=+-/*\"<>=", boost::drop_empty_tokens);
@@ -113,6 +120,27 @@ namespace dlvhex {
 			}
 			string removeQuotes(string s) {
 				return s.substr(1, s.length() - 2);
+			}
+			string replaceInvertibleOperator(string expr) {
+				typedef pair<string, string> string_pair;
+
+				vector<string_pair> invertibleOperators;
+
+				invertibleOperators.push_back(make_pair("==", "!="));
+				invertibleOperators.push_back(make_pair("!=", "=="));
+				invertibleOperators.push_back(make_pair(">=", "<"));
+				invertibleOperators.push_back(make_pair("<=", ">"));
+				invertibleOperators.push_back(make_pair(">", "<="));
+				invertibleOperators.push_back(make_pair("<", ">="));
+
+				BOOST_FOREACH (string_pair invertibleOperator, invertibleOperators) {
+					if (expr.find (invertibleOperator.first) != string::npos) {
+						boost::replace_all(expr, invertibleOperator.first, invertibleOperator.second);
+						break;
+					}
+				}
+
+				return expr;
 			}
 	};
     
