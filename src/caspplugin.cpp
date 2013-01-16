@@ -27,7 +27,7 @@ namespace dlvhex {
 		public:
 			ConsistencyAtom() : PluginAtom( "casp", 1)
 			{
-				for (int i = 0; i < 25; i++)
+				for (int i = 0; i < 30; i++)
 					addInputPredicate();
 				
 				setOutputArity(0);
@@ -38,16 +38,18 @@ namespace dlvhex {
 			{
 				Registry &registry = *getRegistry();
 
-				std::pair<Interpretation::TrueBitIterator, Interpretation::TrueBitIterator>
-					trueAtoms = query.extinterpretation->trueBits();
-
 				std::vector<std::string> expressions;
+				std::vector<std::string> sumData;
 				std::string domain = "";
 				std::string globalConstraintName = "";
 				std::string globalConstraintValue = "";
 
+				std::pair<Interpretation::TrueBitIterator, Interpretation::TrueBitIterator>
+					trueAtoms = query.interpretation->trueBits();
+
 				for (Interpretation::TrueBitIterator it = trueAtoms.first; it != trueAtoms.second; it++) {
 					const OrdinaryAtom &atom = query.interpretation->getAtomToBit(it);
+
 					Term name = registry.terms.getByID(atom.tuple[0]);
 
 					std::string expr = "";
@@ -55,12 +57,22 @@ namespace dlvhex {
 						Term value = registry.terms.getByID(atom.tuple[1]);
 						expr = value.symbol;
 					}
-					if (boost::starts_with(name.symbol,"not_expr")) {
+					else if (boost::starts_with(name.symbol,"not_expr")) {
 						Term value = registry.terms.getByID(atom.tuple[1]);
 						expr = replaceInvertibleOperator(value.symbol);
 					}
+					else if (name.symbol == "dom") {
+						domain = removeQuotes(registry.terms.getByID(atom.tuple[1]).symbol);
+					}
+					else if (name.symbol == "maximize" || name.symbol == "minimize") {
+						globalConstraintName = name.symbol;
 
-					if (expr != "") {
+						globalConstraintValue = removeQuotes(registry.terms.getByID(atom.tuple[1]).symbol);
+					}
+					else { // this predicate received as input to sum aggregate function
+						sumData.push_back(atom.text);
+					}
+					if (expr != "") { // handle expr and not_expr
 						int variableIndex = 2;
 
 						boost::char_separator<char> sep(" ", ",v.:-$%<>=+-/*\"<>=", boost::drop_empty_tokens);
@@ -85,20 +97,15 @@ namespace dlvhex {
 						}
 
 						expressions.push_back(removeQuotes(result));
-
-					}
-					if (name.symbol == "dom") {
-						domain = removeQuotes(registry.terms.getByID(atom.tuple[1]).symbol);
-					}
-					if (name.symbol == "maximize" || name.symbol == "minimize") {
-						globalConstraintName = name.symbol;
-
-						globalConstraintValue = removeQuotes(registry.terms.getByID(atom.tuple[1]).symbol);
 					}
 				}
-				GecodeSolver* solver = new GecodeSolver(expressions, domain, globalConstraintName, globalConstraintValue);
+
+				// Call gecode solver
+				GecodeSolver* solver = new GecodeSolver(expressions, sumData,
+						domain, globalConstraintName, globalConstraintValue);
 				Gecode::DFS<GecodeSolver> solutions(solver);
 
+				// If there's at least one solution, then data is consistent
 				if (solutions.next()) {
 					Tuple out;
 					answer.get().push_back(out);

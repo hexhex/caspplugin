@@ -22,7 +22,8 @@ using namespace std;
 class GecodeSolver: public Gecode::MaximizeSpace {
 public:
 	/// Actual model
-	GecodeSolver(vector<string> expressions, string domain, string globalConstraintName, string globalConstraintValue);
+	GecodeSolver(vector<string> expressions, vector<string> sumData,
+			string domain, string globalConstraintName, string globalConstraintValue);
 
 	GecodeSolver(bool share, GecodeSolver& s) :
 			Gecode::MaximizeSpace(share, s),
@@ -45,7 +46,7 @@ private:
 	map<string, Gecode::IntVar> constraintVariables;
 	Gecode::IntVar costVariable;
 
-	Gecode::LinExpr makeExpression(ParseTree* tree);
+	Gecode::LinExpr makeExpression(ParseTree* tree, vector<string> sumData);
 };
 
 

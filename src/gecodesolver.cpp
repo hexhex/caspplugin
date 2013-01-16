@@ -16,11 +16,14 @@
 #include "casp/gecodesolver.h"
 
 #include <boost/tokenizer.hpp>
+#include <boost/algorithm/string.hpp>
 
 using namespace Gecode;
 using namespace std;
 
-GecodeSolver::GecodeSolver(vector<string> expressions, string domain, string globalConstraintName, string globalConstraintValue) {
+GecodeSolver::GecodeSolver(vector<string> expressions, vector<string> sumData,
+		string domain, string globalConstraintName, string globalConstraintValue) {
+
 	if (domain == "") domain = "1..10";
 
 	typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
@@ -42,8 +45,8 @@ GecodeSolver::GecodeSolver(vector<string> expressions, string domain, string glo
 		ParseTree* tree;
 		parser.makeTree(expression, &tree);
 
-		LinExpr leftExpression = makeExpression(tree->left);
-		LinExpr rightExpression = makeExpression(tree->right);
+		LinExpr leftExpression = makeExpression(tree->left, sumData);
+		LinExpr rightExpression = makeExpression(tree->right, sumData);
 
 		if (tree->value == "==")
 			rel(*this, leftExpression == rightExpression);
@@ -64,7 +67,7 @@ GecodeSolver::GecodeSolver(vector<string> expressions, string domain, string glo
 	if (globalConstraintName != "") {
 		ParseTree* tree;
 		parser.makeTree(globalConstraintValue, &tree);
-		LinExpr globalConstraintExpression = makeExpression(tree);
+		LinExpr globalConstraintExpression = makeExpression(tree, sumData);
 
 		if (globalConstraintName == "maximize")
 			costVariable = expr(*this, globalConstraintExpression);
@@ -73,10 +76,10 @@ GecodeSolver::GecodeSolver(vector<string> expressions, string domain, string glo
 	}
 }
 
-Gecode::LinExpr GecodeSolver::makeExpression(ParseTree* tree) {
+Gecode::LinExpr GecodeSolver::makeExpression(ParseTree* tree, vector<string> sumData) {
 	if (tree->type == OPERATOR) {
-		LinExpr leftVariable = makeExpression(tree->left);
-		LinExpr rightVariable = makeExpression(tree->right);
+		LinExpr leftVariable = makeExpression(tree->left, sumData);
+		LinExpr rightVariable = makeExpression(tree->right, sumData);
 
 		string op = tree->value;
 
@@ -95,14 +98,31 @@ Gecode::LinExpr GecodeSolver::makeExpression(ParseTree* tree) {
 	else if(tree->type == CONSTRAINT_VARIABLE) {
 		string variableName = tree->value;
 
-		map<string,Gecode::IntVar>::iterator it = constraintVariables.find(variableName);
-		if (it == constraintVariables.end()) { // create fresh variable
-			Gecode::IntVar var(*this, minValue, maxValue);
-			constraintVariables[variableName] = var;
-			return var;
+		if (boost::starts_with(variableName, "sum_")) {
+			string aggregatedPredicate = variableName.substr(4);
+
+			LinExpr result = expr(*this, 1==1);
+			/*SimpleParser parser;
+			ParseTree* sumTree;
+			for (int i = 0; i < sumData.size(); i++) {
+				string s = sumData[i];
+				parser.makeTree(s, &sumTree);
+
+				result = result + makeExpression(sumTree, sumData);
+				parser.deleteTree(sumTree);
+			}*/
+			return result;
 		}
-		else { // reuse old variable
-			return it->second;
+		else {
+			map<string,Gecode::IntVar>::iterator it = constraintVariables.find(variableName);
+			if (it == constraintVariables.end()) { // create fresh variable
+				Gecode::IntVar var(*this, minValue, maxValue);
+				constraintVariables[variableName] = var;
+				return var;
+			}
+			else { // reuse old variable
+				return it->second;
+			}
 		}
 	}
 	else throw "Unknown node type";

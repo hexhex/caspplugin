@@ -35,9 +35,16 @@ bool isVariable(string s) {
 	return res;
 }
 
+string getValueInsideBrackets(string s) {
+	int startIndex = s.find("(") + 1;
+	int endIndex = s.find(")");
+	return s.substr(startIndex, endIndex - startIndex);
+}
+
 void CaspConverter::convert(istream& i, ostream& o) {
 	vector<string> variables;
 	vector<string> expressions;
+	vector<string> sumPredicates;
 
 	bool cspExpression = false;
 
@@ -50,9 +57,7 @@ void CaspConverter::convert(istream& i, ostream& o) {
 		for (int i = 0; i < 3; i++) {
 			string directive = specialDirectives[i];
 			if (boost::starts_with(input, "$" + directive)) {
-				int startIndex = input.find("(") + 1;
-				int endIndex = input.find(")");
-				input = input.substr(startIndex, endIndex - startIndex);
+				input = getValueInsideBrackets(input);
 				o << directive << "(\"" << input << "\")." << endl;
 				stop = true;
 				break;
@@ -97,9 +102,14 @@ void CaspConverter::convert(istream& i, ostream& o) {
 							}
 							break;
 						} else {
-							caspExpression = expressions[i] + caspExpression;
 							if (isVariable(expressions[i]))
 								variables.push_back(expressions[i]);
+							if (starts_with(expressions[i], "sum")) {
+								// transform sum(p) to sum_p for proper parsing
+								sumPredicates.push_back(getValueInsideBrackets(expressions[i]));
+								expressions[i] = "sum_" + getValueInsideBrackets(expressions[i]);
+							}
+							caspExpression = expressions[i] + caspExpression;
 						}
 					}
 					expressions.clear();
@@ -118,9 +128,15 @@ void CaspConverter::convert(istream& i, ostream& o) {
 
 							break;
 						} else if (token != "$") {
-							caspExpression += token;
 							if (isVariable(token))
 								variables.push_back(token);
+							else if (starts_with(token, "sum")) {
+								// transform sum(p) to sum_p for proper parsing
+								sumPredicates.push_back(getValueInsideBrackets(token));
+								token = "sum_" + getValueInsideBrackets(token);
+							}
+
+							caspExpression += token;
 						}
 
 						it++;
@@ -136,9 +152,15 @@ void CaspConverter::convert(istream& i, ostream& o) {
 		expressions.clear();
 	}
 
+	int maxSumPredicates = 5;
+
 	o << ":- not &casp[dom,maximize,minimize";
 	for (int i = 0; i < 11; i++) {
 		o << ",expr" << i << ",not_expr" << i;
 	}
+	for (int i = 0; i < sumPredicates.size(); i++)
+		o << "," << sumPredicates[i];
+	for (int i = 0; i < maxSumPredicates - sumPredicates.size(); i++)
+		o << "," << "dummy_sum_predicate" << i;
 	o << "]()." << endl;
 }

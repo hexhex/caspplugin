@@ -26,15 +26,21 @@ void CaspRewriter::rewriteRule(ProgramCtx& ctx, vector<ID>& idb, ID ruleID) {
 
 	bool needRewrite = false;
 	BOOST_FOREACH(ID atomId, rule.head) {
-		const OrdinaryAtom& atom = reg->lookupOrdinaryAtom(atomId);
-		if (boost::starts_with(atom.text, "expr"))
-			needRewrite = true;
-	}
+			if (!(atomId.isExternalAtom()) && !(atomId.isBuiltinAtom())) {
+				const OrdinaryAtom& atom = reg->lookupOrdinaryAtom(atomId);
+				if (boost::starts_with(atom.text, "expr")) {
+					needRewrite = true;
+					break;
+				}
+			}
+		}
 	BOOST_FOREACH(ID atomId, rule.body) {
 		if (!(atomId.isExternalAtom()) && !(atomId.isBuiltinAtom())) {
 			const OrdinaryAtom& atom = reg->lookupOrdinaryAtom(atomId);
-			if (boost::starts_with(atom.text, "expr"))
+			if (boost::starts_with(atom.text, "expr")) {
 				needRewrite = true;
+				break;
+			}
 		}
 	}
 
