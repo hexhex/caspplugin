@@ -18,6 +18,11 @@ public:
 			vector<ID> atomIds, GecodeSolver *solver) = 0;
 };
 
+class NoLearningProcessor : public LearningProcessor {
+	virtual void learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions,
+				vector<ID> atomIds, GecodeSolver *solver);
+};
+
 class BackwardLearningProcessor : public LearningProcessor {
 	virtual void learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions,
 				vector<ID> atomIds, GecodeSolver *solver);

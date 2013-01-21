@@ -10,8 +10,13 @@
 using namespace dlvhex;
 using namespace std;
 
+void NoLearningProcessor::learnNogoods(NogoodContainerPtr nogoods,
+		vector<string> expressions, vector<ID> atomIds, GecodeSolver* solver) {
+}
+
 void BackwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods,
 		vector<string> expressions, vector<ID> atomIds, GecodeSolver* solver) {
+
 	vector<ID> iis;
 	for (int i = 0; i < expressions.size(); i++) {
 		string oldExpression = expressions[i];

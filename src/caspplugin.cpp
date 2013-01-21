@@ -214,11 +214,14 @@ namespace dlvhex {
     		CASPPlugin() :
     			_converter(new CaspConverter()),
     			_rewriter(new CaspRewriter()),
-    			_learningProcessor(new BackwardLearningProcessor())
+    			_learningProcessor(new NoLearningProcessor())
 			{
 				setNameVersion(PACKAGE_TARNAME,CASPPLUGIN_VERSION_MAJOR,CASPPLUGIN_VERSION_MINOR,CASPPLUGIN_VERSION_MICRO);
 			}
 		
+    		/**
+    		 * @brief Creates single consistency atom
+    		 */
 			virtual std::vector<PluginAtomPtr> createAtoms(ProgramCtx&) const
 			{
 				std::vector<PluginAtomPtr> ret;
@@ -228,10 +231,31 @@ namespace dlvhex {
 				return ret;
 			}
       
+			/**
+			 * @brief Processes command line options.
+			 * The possible options include learning processor
+			 */
 			virtual void 
 			processOptions(std::list<const char*>& pluginOptions, ProgramCtx& ctx)
 			{
-			
+				typedef std::list<const char*>::iterator listIterator;
+				listIterator it = pluginOptions.begin();
+				while (it != pluginOptions.end()) {
+					std::string option(*it);
+
+					if (option.find("--csplearning=") != std::string::npos) {
+						string processorName = option.substr(std::string("--csplearning=").length());
+						if (processorName == "none") {
+							_learningProcessor = boost::shared_ptr<LearningProcessor>(new NoLearningProcessor());
+						}
+						else if (processorName == "backward") {
+							_learningProcessor = boost::shared_ptr<LearningProcessor>(new BackwardLearningProcessor());
+						}
+						it = pluginOptions.erase(it);
+					}
+					else
+						it++;
+				}
 			}
 
 			virtual PluginConverterPtr createConverter(ProgramCtx& ctx) {
