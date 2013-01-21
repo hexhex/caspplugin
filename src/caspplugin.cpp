@@ -5,6 +5,7 @@
 #include "casp/casprewriter.h"
 
 #include <dlvhex2/PluginInterface.h>
+#include <dlvhex2/ProgramCtx.h>
 #include <dlvhex2/Term.h>
 #include <dlvhex2/Registry.h>
 #include <dlvhex2/OrdinaryAtomTable.h>
@@ -33,9 +34,15 @@ namespace dlvhex {
 				setOutputArity(0);
 			}
       
-			virtual void
-			retrieve(const Query& query, Answer& answer) throw (PluginError)
+			virtual void retrieve(const Query& query, Answer& answer) throw (PluginError)
 			{
+				assert(false);
+			}
+
+			virtual void
+			retrieve(const Query& query, Answer& answer, NogoodContainerPtr nogoods) throw (PluginError)
+			{
+				assert(nogoods != 0);
 				Registry &registry = *getRegistry();
 
 				std::vector<std::string> expressions;
@@ -47,6 +54,7 @@ namespace dlvhex {
 				std::pair<Interpretation::TrueBitIterator, Interpretation::TrueBitIterator>
 					trueAtoms = query.interpretation->trueBits();
 
+				vector<OrdinaryAtom> atoms;
 				for (Interpretation::TrueBitIterator it = trueAtoms.first; it != trueAtoms.second; it++) {
 					const OrdinaryAtom &atom = query.interpretation->getAtomToBit(it);
 
@@ -90,13 +98,14 @@ namespace dlvhex {
 									res = os.str();
 								}
 								else
-									res = registry.terms.getByID(atom.tuple[variableIndex]).symbol;
+									res = registry.terms.getByID(id).symbol;
 								result += res;
 							}
 							else result += val;
 						}
 
 						expressions.push_back(removeQuotes(result));
+						atoms.push_back(atom);
 					}
 				}
 
@@ -110,6 +119,38 @@ namespace dlvhex {
 					Tuple out;
 					answer.get().push_back(out);
 				}
+				else { // otherwise we need to learn IIS from it
+					vector<OrdinaryAtom> iis;
+					for (int i = 0; i < expressions.size(); i++) {
+						string oldExpression = expressions[i];
+						expressions[i] = "";
+
+						GecodeSolver* otherSolver = new GecodeSolver(expressions, sumData,
+												domain, globalConstraintName, globalConstraintValue);
+						Gecode::DFS<GecodeSolver> otherSolutions(otherSolver);
+
+						cout << "IIS: ";
+						// If it is consistent, restore original constraint
+						if (otherSolutions.next()) {
+							expressions[i] = oldExpression;
+							iis.push_back(atoms[i]);
+
+							cout << expressions[i] << " ";
+						}
+						delete otherSolver;
+						// Otherwise we can safely remove it
+					}
+					cout << endl;
+
+					Nogood nogood;
+					BOOST_FOREACH(OrdinaryAtom atom, iis) {
+						ID atomId = registry.ogatoms.getIDByTuple(atom.tuple);
+//						nogood.insert(NogoodContainer::createLiteral(registry.storeOrdinaryGAtom(atom).address, true));
+//						nogood.insert(NogoodContainer::createLiteral(atomId));
+					}
+//					nogoods->addNogood(nogood);
+				}
+				delete solver;
 			}
 		private:
 			bool isVariable(string s) {
