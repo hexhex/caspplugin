@@ -15,6 +15,8 @@
 #include <string>
 #include <map>
 
+#include <boost/shared_ptr.hpp>
+
 #include "simpleparser.h"
 
 using namespace std;
@@ -22,14 +24,16 @@ using namespace std;
 class GecodeSolver: public Gecode::MaximizeSpace {
 public:
 	/// Actual model
-	GecodeSolver(vector<string> sumData, string domain, string globalConstraintName, string globalConstraintValue);
+	GecodeSolver(vector<string> sumData, string domain, string globalConstraintName, string globalConstraintValue,
+			boost::shared_ptr<SimpleParser> simpleParser);
 
 	GecodeSolver(bool share, GecodeSolver& s) :
 			Gecode::MaximizeSpace(share, s),
 			_minValue(s._minValue),
 			_maxValue(s._maxValue),
 			_constraintVariables(s._constraintVariables),
-			_costVariable(s._costVariable) {
+			_costVariable(s._costVariable),
+			_simpleParser(s._simpleParser) {
 	}
 
 	void propagate(vector<string> expressions);
@@ -47,6 +51,8 @@ private:
 	int _maxValue;
 
 	vector<string> _sumData;
+
+	boost::shared_ptr<SimpleParser> _simpleParser;
 
 	map<string, Gecode::IntVar> _constraintVariables;
 	Gecode::IntVar _costVariable;

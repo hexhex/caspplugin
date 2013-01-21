@@ -35,9 +35,11 @@ namespace dlvhex {
     		/**
     		 * Simple constuctor, which accepts option for IIS learning
     		 */
-			ConsistencyAtom(boost::shared_ptr<LearningProcessor> learningProcessor) :
+			ConsistencyAtom(boost::shared_ptr<LearningProcessor> learningProcessor,
+					boost::shared_ptr<SimpleParser> simpleParser) :
 				PluginAtom( "casp", 0),
-				_learningProcessor(learningProcessor)
+				_learningProcessor(learningProcessor),
+				_simpleParser(simpleParser)
 			{
 				// This add predicates for all input parameters
 				for (int i = 0; i < 30; i++)
@@ -134,7 +136,7 @@ namespace dlvhex {
 				}
 
 				// Call gecode solver
-				GecodeSolver* solver = new GecodeSolver(sumData, domain, globalConstraintName, globalConstraintValue);
+				GecodeSolver* solver = new GecodeSolver(sumData, domain, globalConstraintName, globalConstraintValue, _simpleParser);
 				solver->propagate(expressions);
 				Gecode::BAB<GecodeSolver> solutions(solver);
 
@@ -144,7 +146,7 @@ namespace dlvhex {
 					answer.get().push_back(out);
 				}
 				else { // otherwise we need to learn IIS from it
-					GecodeSolver* otherSolver = new GecodeSolver(sumData, domain, globalConstraintName, globalConstraintValue);
+					GecodeSolver* otherSolver = new GecodeSolver(sumData, domain, globalConstraintName, globalConstraintValue, _simpleParser);
 					_learningProcessor->learnNogoods(nogoods, expressions, atomIds, otherSolver);
 					delete otherSolver;
 				}
@@ -152,6 +154,7 @@ namespace dlvhex {
 			}
 		private:
 			boost::shared_ptr<LearningProcessor> _learningProcessor;
+			boost::shared_ptr<SimpleParser> _simpleParser;
 
 			/**
 			 * @brief This helper method is used to check whether string is a variable
@@ -208,13 +211,15 @@ namespace dlvhex {
 			boost::shared_ptr<CaspConverter> _converter;
 			boost::shared_ptr<CaspRewriter> _rewriter;
 			boost::shared_ptr<LearningProcessor> _learningProcessor;
+			boost::shared_ptr<SimpleParser> _simpleParser;
 
 		public:
       
     		CASPPlugin() :
     			_converter(new CaspConverter()),
     			_rewriter(new CaspRewriter()),
-    			_learningProcessor(new NoLearningProcessor())
+    			_learningProcessor(new NoLearningProcessor()),
+    			_simpleParser(new SimpleParser())
 			{
 				setNameVersion(PACKAGE_TARNAME,CASPPLUGIN_VERSION_MAJOR,CASPPLUGIN_VERSION_MINOR,CASPPLUGIN_VERSION_MICRO);
 			}
@@ -226,7 +231,7 @@ namespace dlvhex {
 			{
 				std::vector<PluginAtomPtr> ret;
 			
-				ret.push_back(PluginAtomPtr(new ConsistencyAtom(_learningProcessor), PluginPtrDeleter<PluginAtom>()));
+				ret.push_back(PluginAtomPtr(new ConsistencyAtom(_learningProcessor, _simpleParser), PluginPtrDeleter<PluginAtom>()));
 			
 				return ret;
 			}
@@ -235,10 +240,14 @@ namespace dlvhex {
 			 * @brief prints possible command line options
 			 */
 			virtual void printUsage(std::ostream& o) const {
-				o << "     --csplearning=[none,backward,forward]          Enable csp learning(none by default)." << endl;
-				o << "                                                    none       - No learning." << endl;
-				o << "                                                    backward   - Backward deletion learning." << endl;
-				o << "                                                    forward   - Forward deletion learning." << endl;
+				o << "     --csplearning=[none,deletion,forward,backward,cc,wcc] " << endl;
+				o << "                   Enable csp learning(none by default)." << endl;
+				o << "                   none       - No learning." << endl;
+				o << "                   deletion   - Deletion filtering learning." << endl;
+				o << "                   forward    - Forward filtering learning." << endl;
+				o << "                   backward   - Backward filtering learning." << endl;
+				o << "                   cc         - Connected component filtering learning." << endl;
+				o << "                   wcc        - Weighted connected component filtering learning." << endl;
 			}
       
 			/**
@@ -258,11 +267,20 @@ namespace dlvhex {
 						if (processorName == "none") {
 							_learningProcessor = boost::shared_ptr<LearningProcessor>(new NoLearningProcessor());
 						}
-						else if (processorName == "backward") {
-							_learningProcessor = boost::shared_ptr<LearningProcessor>(new BackwardLearningProcessor());
+						else if (processorName == "deletion") {
+							_learningProcessor = boost::shared_ptr<LearningProcessor>(new DeletionLearningProcessor());
 						}
 						else if (processorName == "forward") {
 							_learningProcessor = boost::shared_ptr<LearningProcessor>(new ForwardLearningProcessor());
+						}
+						else if (processorName == "backward") {
+							_learningProcessor = boost::shared_ptr<LearningProcessor>(new BackwardLearningProcessor());
+						}
+						else if (processorName == "cc") {
+							_learningProcessor = boost::shared_ptr<LearningProcessor>(new CCLearningProcessor());
+						}
+						else if (processorName == "wcc") {
+							_learningProcessor = boost::shared_ptr<LearningProcessor>(new WeightedCCLearningProcessor());
 						}
 						else
 							throw PluginError("Unrecognized option for --csplearning: " + processorName);

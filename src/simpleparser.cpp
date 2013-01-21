@@ -112,6 +112,11 @@ string SimpleParser::convertToPostfix(string infix)
 }
 
 void SimpleParser::makeTree(string infix, struct ParseTree** root) {
+	if (_cachedTrees.find(infix) != _cachedTrees.end()) {
+		*root = new ParseTree(_cachedTrees[infix]);
+		return;
+	}
+
 	string postfix = convertToPostfix(infix);
 
 	stack<ParseTree*> elems;

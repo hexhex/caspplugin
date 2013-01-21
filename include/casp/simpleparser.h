@@ -9,6 +9,7 @@
 #define SIMPLEPARSER_H_
 
 #include <string>
+#include <map>
 
 using namespace std;
 
@@ -26,6 +27,8 @@ const int MAX = 500;
 
 class SimpleParser {
 private:
+	map<string, ParseTree> _cachedTrees;
+
 	int isOperator(string s);
 	int priority(string s);
 	string convertToPostfix(string infix);

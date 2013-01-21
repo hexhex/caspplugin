@@ -1,5 +1,5 @@
 /*
- * gecodesolver.cpp
+R * gecodesolver.cpp
  *
  *  Created on: Dec 3, 2012
  *      Author: faeton
@@ -22,8 +22,9 @@
 using namespace Gecode;
 using namespace std;
 
-GecodeSolver::GecodeSolver(vector<string> sumData,
-		string domain, string globalConstraintName, string globalConstraintValue) {
+GecodeSolver::GecodeSolver(vector<string> sumData, string domain,
+		string globalConstraintName, string globalConstraintValue, boost::shared_ptr<SimpleParser> simpleParser) :
+			_simpleParser(simpleParser) {
 
 	if (domain == "") domain = "1..10";
 
@@ -41,15 +42,16 @@ GecodeSolver::GecodeSolver(vector<string> sumData,
 	_maxValue = atoi(stringMaxValue.c_str());
 
 	if (globalConstraintName != "") {
-		SimpleParser parser;
 		ParseTree* tree;
-		parser.makeTree(globalConstraintValue, &tree);
+		_simpleParser->makeTree(globalConstraintValue, &tree);
 		LinExpr globalConstraintExpression = makeExpression(tree);
 
 		if (globalConstraintName == "maximize")
 			_costVariable = expr(*this, globalConstraintExpression);
 		if (globalConstraintName == "minimize")
 			_costVariable = expr(*this, -globalConstraintExpression);
+
+		_simpleParser->deleteTree(tree);
 	}
 }
 
@@ -65,10 +67,8 @@ void GecodeSolver::propagate(string expression) {
 	// This could be the case for learning
 	if (expression == "") return;
 
-	SimpleParser parser;
-
 	ParseTree* tree;
-	parser.makeTree(expression, &tree);
+	_simpleParser->makeTree(expression, &tree);
 
 	LinExpr leftExpression = makeExpression(tree->left);
 	LinExpr rightExpression = makeExpression(tree->right);
@@ -86,7 +86,7 @@ void GecodeSolver::propagate(string expression) {
 	else if (tree->value == "<=")
 		rel(*this, leftExpression <= rightExpression);
 
-	parser.deleteTree(tree);
+	_simpleParser->deleteTree(tree);
 }
 
 Gecode::LinExpr GecodeSolver::makeExpression(ParseTree* tree) {
@@ -115,14 +115,13 @@ Gecode::LinExpr GecodeSolver::makeExpression(ParseTree* tree) {
 			string aggregatedPredicate = variableName.substr(4);
 
 			LinExpr result = expr(*this, 1==1);
-			SimpleParser parser;
 			ParseTree* sumTree;
 			for (int i = 0; i < _sumData.size(); i++) {
 				string s = _sumData[i];
-				parser.makeTree(s, &sumTree);
+				_simpleParser->makeTree(s, &sumTree);
 
 				result = result + makeExpression(sumTree);
-				parser.deleteTree(sumTree);
+				_simpleParser->deleteTree(sumTree);
 			}
 			return result;
 		}
