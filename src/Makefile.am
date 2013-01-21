@@ -12,6 +12,7 @@ libdlvhexplugin_casp_la_SOURCES = \
 		simpleparser.cpp \
 		caspconverter.cpp \
 		casprewriter.cpp \
+		learningprocessor.cpp \
 		caspplugin.cpp
 
 #

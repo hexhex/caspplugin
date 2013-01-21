@@ -22,31 +22,36 @@ using namespace std;
 class GecodeSolver: public Gecode::MaximizeSpace {
 public:
 	/// Actual model
-	GecodeSolver(vector<string> expressions, vector<string> sumData,
-			string domain, string globalConstraintName, string globalConstraintValue);
+	GecodeSolver(vector<string> sumData, string domain, string globalConstraintName, string globalConstraintValue);
 
 	GecodeSolver(bool share, GecodeSolver& s) :
 			Gecode::MaximizeSpace(share, s),
-			minValue(s.minValue),
-			maxValue(s.maxValue),
-			constraintVariables(s.constraintVariables),
-			costVariable(s.costVariable) {
+			_minValue(s._minValue),
+			_maxValue(s._maxValue),
+			_constraintVariables(s._constraintVariables),
+			_costVariable(s._costVariable) {
 	}
+
+	void propagate(vector<string> expressions);
+	void propagate(string expression);
 
 	virtual Gecode::Space*
 	copy(bool share) {
 		return new GecodeSolver(share, *this);
 	}
 	virtual Gecode::IntVar cost() const {
-		return costVariable;
+		return _costVariable;
 	}
 private:
-	int minValue;
-	int maxValue;
-	map<string, Gecode::IntVar> constraintVariables;
-	Gecode::IntVar costVariable;
+	int _minValue;
+	int _maxValue;
 
-	Gecode::LinExpr makeExpression(ParseTree* tree, vector<string> sumData);
+	vector<string> _sumData;
+
+	map<string, Gecode::IntVar> _constraintVariables;
+	Gecode::IntVar _costVariable;
+
+	Gecode::LinExpr makeExpression(ParseTree* tree);
 };
 
 

@@ -3,6 +3,7 @@
 #include "casp/gecodesolver.h"
 #include "casp/caspconverter.h"
 #include "casp/casprewriter.h"
+#include "casp/learningprocessor.h"
 
 #include <dlvhex2/PluginInterface.h>
 #include <dlvhex2/ProgramCtx.h>
@@ -16,6 +17,7 @@
 #include <gecode/minimodel.hh>
 
 #include <string>
+#include <utility>
 #include <boost/tokenizer.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string.hpp>
@@ -23,22 +25,39 @@
 namespace dlvhex {
   namespace casp {
 
+  	/**
+  	 * @brief Defines the consistency atom of the plugin:
+  	 * :- not casp&[dom, exprN, not_exprN, globalConstraints]
+  	 */
     class ConsistencyAtom : public PluginAtom
     {
 		public:
-			ConsistencyAtom() : PluginAtom( "casp", 1)
+    		/**
+    		 * Simple constuctor, which accepts option for IIS learning
+    		 */
+			ConsistencyAtom(boost::shared_ptr<LearningProcessor> learningProcessor) :
+				PluginAtom( "casp", 0),
+				_learningProcessor(learningProcessor)
 			{
+				// This add predicates for all input parameters
 				for (int i = 0; i < 30; i++)
 					addInputPredicate();
 				
 				setOutputArity(0);
 			}
       
+			/**
+			 * @brief Retrieves answer for query.
+			 * Should not be called, as learning is enabled.
+			 */
 			virtual void retrieve(const Query& query, Answer& answer) throw (PluginError)
 			{
 				assert(false);
 			}
 
+			/**
+			 * @brief Retrieves answer for query and learns IIS based on processor
+			 */
 			virtual void
 			retrieve(const Query& query, Answer& answer, NogoodContainerPtr nogoods) throw (PluginError)
 			{
@@ -54,12 +73,15 @@ namespace dlvhex {
 				std::pair<Interpretation::TrueBitIterator, Interpretation::TrueBitIterator>
 					trueAtoms = query.interpretation->trueBits();
 
-				vector<OrdinaryAtom> atoms;
+				vector<ID> atomIds;
+
+				// Iterate over all input data
 				for (Interpretation::TrueBitIterator it = trueAtoms.first; it != trueAtoms.second; it++) {
 					const OrdinaryAtom &atom = query.interpretation->getAtomToBit(it);
 
 					Term name = registry.terms.getByID(atom.tuple[0]);
 
+					// Store in local variables input data in predicates
 					std::string expr = "";
 					if (boost::starts_with(name.symbol,"expr")) {
 						Term value = registry.terms.getByID(atom.tuple[1]);
@@ -81,6 +103,7 @@ namespace dlvhex {
 						sumData.push_back(atom.text);
 					}
 					if (expr != "") { // handle expr and not_expr
+						// Replace all ASP variables with their actual values.
 						int variableIndex = 2;
 
 						boost::char_separator<char> sep(" ", ",v.:-$%<>=+-/*\"<>=", boost::drop_empty_tokens);
@@ -104,15 +127,16 @@ namespace dlvhex {
 							else result += val;
 						}
 
+						// Store the replaced expression without quotes
 						expressions.push_back(removeQuotes(result));
-						atoms.push_back(atom);
+						atomIds.push_back(registry.ogatoms.getIDByTuple(atom.tuple));
 					}
 				}
 
 				// Call gecode solver
-				GecodeSolver* solver = new GecodeSolver(expressions, sumData,
-						domain, globalConstraintName, globalConstraintValue);
-				Gecode::DFS<GecodeSolver> solutions(solver);
+				GecodeSolver* solver = new GecodeSolver(sumData, domain, globalConstraintName, globalConstraintValue);
+				solver->propagate(expressions);
+				Gecode::BAB<GecodeSolver> solutions(solver);
 
 				// If there's at least one solution, then data is consistent
 				if (solutions.next()) {
@@ -120,39 +144,18 @@ namespace dlvhex {
 					answer.get().push_back(out);
 				}
 				else { // otherwise we need to learn IIS from it
-					vector<OrdinaryAtom> iis;
-					for (int i = 0; i < expressions.size(); i++) {
-						string oldExpression = expressions[i];
-						expressions[i] = "";
-
-						GecodeSolver* otherSolver = new GecodeSolver(expressions, sumData,
-												domain, globalConstraintName, globalConstraintValue);
-						Gecode::DFS<GecodeSolver> otherSolutions(otherSolver);
-
-						cout << "IIS: ";
-						// If it is consistent, restore original constraint
-						if (otherSolutions.next()) {
-							expressions[i] = oldExpression;
-							iis.push_back(atoms[i]);
-
-							cout << expressions[i] << " ";
-						}
-						delete otherSolver;
-						// Otherwise we can safely remove it
-					}
-					cout << endl;
-
-					Nogood nogood;
-					BOOST_FOREACH(OrdinaryAtom atom, iis) {
-						ID atomId = registry.ogatoms.getIDByTuple(atom.tuple);
-//						nogood.insert(NogoodContainer::createLiteral(registry.storeOrdinaryGAtom(atom).address, true));
-//						nogood.insert(NogoodContainer::createLiteral(atomId));
-					}
-//					nogoods->addNogood(nogood);
+					GecodeSolver* otherSolver = new GecodeSolver(sumData, domain, globalConstraintName, globalConstraintValue);
+					_learningProcessor->learnNogoods(nogoods, expressions, atomIds, otherSolver);
+					delete otherSolver;
 				}
 				delete solver;
 			}
 		private:
+			boost::shared_ptr<LearningProcessor> _learningProcessor;
+
+			/**
+			 * @brief This helper method is used to check whether string is a variable
+			 */
 			bool isVariable(string s) {
 				bool res = true;
 				if (s[0] >= 'A' && s[0] <= 'Z') {
@@ -169,6 +172,10 @@ namespace dlvhex {
 			string removeQuotes(string s) {
 				return s.substr(1, s.length() - 2);
 			}
+			/**
+			 * This method is used to change the operator to invertible one
+			 * in "not_expr" terms, e.g. not_expr("3>5") becomes expr("3<=5").
+			 */
 			string replaceInvertibleOperator(string expr) {
 				typedef pair<string, string> string_pair;
 
@@ -198,12 +205,16 @@ namespace dlvhex {
 	class CASPPlugin : public PluginInterface
     {
 		private:
-			boost::shared_ptr<CaspConverter> converter;
-			boost::shared_ptr<CaspRewriter> rewriter;
+			boost::shared_ptr<CaspConverter> _converter;
+			boost::shared_ptr<CaspRewriter> _rewriter;
+			boost::shared_ptr<LearningProcessor> _learningProcessor;
 
 		public:
       
-    		CASPPlugin() : converter(new CaspConverter()), rewriter(new CaspRewriter())
+    		CASPPlugin() :
+    			_converter(new CaspConverter()),
+    			_rewriter(new CaspRewriter()),
+    			_learningProcessor(new BackwardLearningProcessor())
 			{
 				setNameVersion(PACKAGE_TARNAME,CASPPLUGIN_VERSION_MAJOR,CASPPLUGIN_VERSION_MINOR,CASPPLUGIN_VERSION_MICRO);
 			}
@@ -212,7 +223,7 @@ namespace dlvhex {
 			{
 				std::vector<PluginAtomPtr> ret;
 			
-				ret.push_back(PluginAtomPtr(new ConsistencyAtom, PluginPtrDeleter<PluginAtom>()));
+				ret.push_back(PluginAtomPtr(new ConsistencyAtom(_learningProcessor), PluginPtrDeleter<PluginAtom>()));
 			
 				return ret;
 			}
@@ -224,11 +235,11 @@ namespace dlvhex {
 			}
 
 			virtual PluginConverterPtr createConverter(ProgramCtx& ctx) {
-				return converter;
+				return _converter;
 			}
 
 			virtual PluginRewriterPtr createRewriter(ProgramCtx& ctx) {
-				return rewriter;
+				return _rewriter;
 			}
 	};
     
@@ -237,10 +248,6 @@ namespace dlvhex {
     
   } // namespace casp
 } // namespace dlvhex
-
-//
-// let it be loaded by dlvhex!
-//
 
 IMPLEMENT_PLUGINABIVERSIONFUNCTION
 
