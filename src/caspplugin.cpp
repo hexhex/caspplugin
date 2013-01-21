@@ -235,9 +235,10 @@ namespace dlvhex {
 			 * @brief prints possible command line options
 			 */
 			virtual void printUsage(std::ostream& o) const {
-				o << "     --csplearning=[none,backward]   Enable csp learning(none by default)." << endl;
-				o << "                                     none       - No learning." << endl;
-				o << "                                     backward   - Backward deletion learning." << endl;
+				o << "     --csplearning=[none,backward,forward]          Enable csp learning(none by default)." << endl;
+				o << "                                                    none       - No learning." << endl;
+				o << "                                                    backward   - Backward deletion learning." << endl;
+				o << "                                                    forward   - Forward deletion learning." << endl;
 			}
       
 			/**
@@ -260,6 +261,11 @@ namespace dlvhex {
 						else if (processorName == "backward") {
 							_learningProcessor = boost::shared_ptr<LearningProcessor>(new BackwardLearningProcessor());
 						}
+						else if (processorName == "forward") {
+							_learningProcessor = boost::shared_ptr<LearningProcessor>(new ForwardLearningProcessor());
+						}
+						else
+							throw PluginError("Unrecognized option for --csplearning: " + processorName);
 						it = pluginOptions.erase(it);
 					}
 					else

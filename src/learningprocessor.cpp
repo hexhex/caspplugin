@@ -42,3 +42,32 @@ void BackwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods,
 	}
 	nogoods->addNogood(nogood);
 }
+
+void ForwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods,
+		vector<string> expressions, vector<ID> atomIds, GecodeSolver* solver) {
+
+	GecodeSolver *otherSolver = static_cast<GecodeSolver*>(solver->clone());
+
+	vector<ID> iis;
+
+	for (int i = 0; i < expressions.size(); i++) {
+		otherSolver->propagate(expressions[i]);
+
+		Gecode::BAB<GecodeSolver> solutions(otherSolver);
+
+		iis.push_back(atomIds[i]);
+
+		// If it is inconsistent, IIS found, break
+		if (!solutions.next()) {
+			break;
+		}
+
+	}
+	delete otherSolver;
+
+	Nogood nogood;
+	BOOST_FOREACH(ID atomId, iis) {
+		nogood.insert(NogoodContainer::createLiteral(atomId));
+	}
+	nogoods->addNogood(nogood);
+}
