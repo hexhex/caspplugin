@@ -210,16 +210,16 @@ namespace dlvhex {
 		private:
 			boost::shared_ptr<CaspConverter> _converter;
 			boost::shared_ptr<CaspRewriter> _rewriter;
-			boost::shared_ptr<LearningProcessor> _learningProcessor;
 			boost::shared_ptr<SimpleParser> _simpleParser;
+			boost::shared_ptr<LearningProcessor> _learningProcessor;
 
 		public:
       
     		CASPPlugin() :
     			_converter(new CaspConverter()),
     			_rewriter(new CaspRewriter()),
-    			_learningProcessor(new NoLearningProcessor()),
-    			_simpleParser(new SimpleParser())
+    			_simpleParser(new SimpleParser()),
+    			_learningProcessor(new NoLearningProcessor(_simpleParser))
 			{
 				setNameVersion(PACKAGE_TARNAME,CASPPLUGIN_VERSION_MAJOR,CASPPLUGIN_VERSION_MINOR,CASPPLUGIN_VERSION_MICRO);
 			}
@@ -265,22 +265,22 @@ namespace dlvhex {
 					if (option.find("--csplearning=") != std::string::npos) {
 						string processorName = option.substr(std::string("--csplearning=").length());
 						if (processorName == "none") {
-							_learningProcessor = boost::shared_ptr<LearningProcessor>(new NoLearningProcessor());
+							_learningProcessor = boost::shared_ptr<LearningProcessor>(new NoLearningProcessor(_simpleParser));
 						}
 						else if (processorName == "deletion") {
-							_learningProcessor = boost::shared_ptr<LearningProcessor>(new DeletionLearningProcessor());
+							_learningProcessor = boost::shared_ptr<LearningProcessor>(new DeletionLearningProcessor(_simpleParser));
 						}
 						else if (processorName == "forward") {
-							_learningProcessor = boost::shared_ptr<LearningProcessor>(new ForwardLearningProcessor());
+							_learningProcessor = boost::shared_ptr<LearningProcessor>(new ForwardLearningProcessor(_simpleParser));
 						}
 						else if (processorName == "backward") {
-							_learningProcessor = boost::shared_ptr<LearningProcessor>(new BackwardLearningProcessor());
+							_learningProcessor = boost::shared_ptr<LearningProcessor>(new BackwardLearningProcessor(_simpleParser));
 						}
 						else if (processorName == "cc") {
-							_learningProcessor = boost::shared_ptr<LearningProcessor>(new CCLearningProcessor());
+							_learningProcessor = boost::shared_ptr<LearningProcessor>(new CCLearningProcessor(_simpleParser));
 						}
 						else if (processorName == "wcc") {
-							_learningProcessor = boost::shared_ptr<LearningProcessor>(new WeightedCCLearningProcessor());
+							_learningProcessor = boost::shared_ptr<LearningProcessor>(new WeightedCCLearningProcessor(_simpleParser));
 						}
 						else
 							throw PluginError("Unrecognized option for --csplearning: " + processorName);
