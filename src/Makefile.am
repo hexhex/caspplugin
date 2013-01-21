@@ -10,6 +10,8 @@ plugin_LTLIBRARIES = libdlvhexplugin-casp.la
 libdlvhexplugin_casp_la_SOURCES = \
 		gecodesolver.cpp \
 		simpleparser.cpp \
+		caspconverter.cpp \
+		casprewriter.cpp \
 		caspplugin.cpp
 
 #
