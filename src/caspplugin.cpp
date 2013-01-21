@@ -230,6 +230,15 @@ namespace dlvhex {
 			
 				return ret;
 			}
+
+			/**
+			 * @brief prints possible command line options
+			 */
+			virtual void printUsage(std::ostream& o) const {
+				o << "     --csplearning=[none,backward]   Enable csp learning(none by default)." << endl;
+				o << "                                     none       - No learning." << endl;
+				o << "                                     backward   - Backward deletion learning." << endl;
+			}
       
 			/**
 			 * @brief Processes command line options.
