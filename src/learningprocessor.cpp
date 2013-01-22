@@ -166,4 +166,62 @@ void CCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string
 
 void WeightedCCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions, vector<ID> atomIds,
 		GecodeSolver* solver) {
+	vector<bool> processedFlags(expressions.size());
+	for (int i = 0; i < expressions.size(); i++)
+		processedFlags[i] = 0;
+
+	set<string> currentVariables;
+
+	GecodeSolver *otherSolver = static_cast<GecodeSolver*>(solver->clone());
+
+	vector<ID> iis;
+
+	while (true) {
+		int processIndex = -1, bestCardinality = -1;
+		set<string> expressionVariables;
+
+		for (int i = 0; i < expressions.size(); i++) {
+			if (processedFlags[i])
+				continue;
+
+
+			ParseTree *root = new ParseTree;
+			_simpleParser->makeTree(expressions[i], &root);
+			expressionVariables = _simpleParser->getConstraintVariables(root);
+			delete root;
+
+			vector<string> intersectionResult(currentVariables.size() + expressionVariables.size());
+			vector<string>::iterator it = set_intersection(currentVariables.begin(), currentVariables.end(), expressionVariables.begin(),
+					expressionVariables.end(), intersectionResult.begin());
+
+			int cardinality = (int(it - intersectionResult.begin()));
+			if (cardinality > bestCardinality ) {
+				processIndex = i;
+				bestCardinality = cardinality;
+			}
+		}
+		if (processIndex == -1)
+			break;
+
+		currentVariables.insert(expressionVariables.begin(), expressionVariables.end());
+
+		otherSolver->propagate(expressions[processIndex]);
+		iis.push_back(atomIds[processIndex]);
+
+		processedFlags[processIndex] = 1;
+
+		Gecode::BAB<GecodeSolver> solutions(otherSolver);
+
+		// If it is inconsistent, IIS found, break
+		if (!solutions.next()) {
+			break;
+		}
+	}
+	delete otherSolver;
+
+	Nogood nogood;
+	BOOST_FOREACH(ID atomId, iis) {
+		nogood.insert(NogoodContainer::createLiteral(atomId));
+	}
+	nogoods->addNogood(nogood);
 }
