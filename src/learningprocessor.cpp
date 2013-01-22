@@ -49,19 +49,39 @@ void ForwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<s
 
 	GecodeSolver *otherSolver = static_cast<GecodeSolver*>(solver->clone());
 
+	vector<bool> processedFlags(expressions.size());
+	for (int i = 0; i < expressions.size(); i++)
+		processedFlags[i] = 0;
+
 	vector<ID> iis;
 
-	for (int i = 0; i < expressions.size(); i++) {
-		otherSolver->propagate(expressions[i]);
+	while (true) {
+		GecodeSolver *innerSolver = static_cast<GecodeSolver*>(otherSolver->clone());
 
-		iis.push_back(atomIds[i]);
+		int propagateIndex = -1;
+		for (int i = 0; i < expressions.size(); i++) {
+			if (processedFlags[i]) continue;
+
+			innerSolver->propagate(expressions[i]);
+
+			Gecode::BAB<GecodeSolver> solutions(innerSolver);
+			// If it is inconsistent, IIS found, break
+			if (!solutions.next()) {
+				processedFlags[i] = 1;
+				propagateIndex = i;
+				break;
+			}
+		}
+
+		if (propagateIndex == -1) break;
+
+		otherSolver->propagate(expressions[propagateIndex]);
+		iis.push_back(atomIds[propagateIndex]);
 
 		Gecode::BAB<GecodeSolver> solutions(otherSolver);
-		// If it is inconsistent, IIS found, break
 		if (!solutions.next()) {
 			break;
 		}
-
 	}
 	delete otherSolver;
 
@@ -114,13 +134,13 @@ void CCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string
 
 	vector<ID> iis;
 
-	cout << "Processing: ";
 	while (true) {
 		int processIndex = -1;
 		set<string> expressionVariables;
 
 		for (int i = 0; i < expressions.size(); i++) {
-			if (processedFlags[i]) continue;
+			if (processedFlags[i])
+				continue;
 
 			processIndex = i;
 
@@ -129,15 +149,16 @@ void CCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string
 			expressionVariables = _simpleParser->getConstraintVariables(root);
 			delete root;
 
-			vector<string> intersectionResult(currentVariables.size() +  expressionVariables.size());
-			vector<string>::iterator it = set_intersection(currentVariables.begin(), currentVariables.end(),
-					expressionVariables.begin(), expressionVariables.end(), intersectionResult.begin());
+			vector<string> intersectionResult(currentVariables.size() + expressionVariables.size());
+			vector<string>::iterator it = set_intersection(currentVariables.begin(), currentVariables.end(), expressionVariables.begin(),
+					expressionVariables.end(), intersectionResult.begin());
 
 			if ((int(it - intersectionResult.begin())) != 0) {
 				break;
 			}
 		}
-		if (processIndex == -1) break;
+		if (processIndex == -1)
+			break;
 
 		currentVariables.insert(expressionVariables.begin(), expressionVariables.end());
 
@@ -153,7 +174,6 @@ void CCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string
 			break;
 		}
 	}
-	cout << endl;
 	delete otherSolver;
 
 	Nogood nogood;
@@ -166,6 +186,7 @@ void CCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string
 
 void WeightedCCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions, vector<ID> atomIds,
 		GecodeSolver* solver) {
+
 	vector<bool> processedFlags(expressions.size());
 	for (int i = 0; i < expressions.size(); i++)
 		processedFlags[i] = 0;
