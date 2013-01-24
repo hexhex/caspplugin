@@ -1,0 +1,7 @@
+$dom(0..100).
+#maxint=300.
+num(5).
+
+f(X) :- #int(X), X>=0, X <= N, num(N).
+p(X) v r(X) :- f(X).
+:- p(X), X $> 0.
