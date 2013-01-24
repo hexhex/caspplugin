@@ -4,6 +4,7 @@
 #include "casp/caspconverter.h"
 #include "casp/casprewriter.h"
 #include "casp/learningprocessor.h"
+#include "casp/utility.h"
 
 #include <dlvhex2/PluginInterface.h>
 #include <dlvhex2/ProgramCtx.h>
@@ -63,7 +64,6 @@ namespace dlvhex {
 			virtual void
 			retrieve(const Query& query, Answer& answer, NogoodContainerPtr nogoods) throw (PluginError)
 			{
-				assert(nogoods != 0);
 				Registry &registry = *getRegistry();
 
 				std::vector<std::string> expressions;
@@ -77,7 +77,7 @@ namespace dlvhex {
 
 				vector<ID> atomIds;
 
-				// Iterate over all input data
+				// Iterate over all input interpretation
 				for (Interpretation::TrueBitIterator it = trueAtoms.first; it != trueAtoms.second; it++) {
 					const OrdinaryAtom &atom = query.interpretation->getAtomToBit(it);
 
@@ -105,6 +105,15 @@ namespace dlvhex {
 						sumData.push_back(atom.text);
 					}
 					if (expr != "") { // handle expr and not_expr
+						// In each line, following replacements are done back and forth
+						// '{' - '('
+						// '}' - ')'
+						// ';' - ','
+						// This is due to the fact that hex parser splits improperly them inside of string term
+						boost::replace_all(expr, "{", "(");
+						boost::replace_all(expr, "}", ")");
+						boost::replace_all(expr, ";", ",");
+
 						// Replace all ASP variables with their actual values.
 						int variableIndex = 2;
 
@@ -156,50 +165,6 @@ namespace dlvhex {
 			boost::shared_ptr<LearningProcessor> _learningProcessor;
 			boost::shared_ptr<SimpleParser> _simpleParser;
 
-			/**
-			 * @brief This helper method is used to check whether string is a variable
-			 */
-			bool isVariable(string s) {
-				bool res = true;
-				if (s[0] >= 'A' && s[0] <= 'Z') {
-					for (int i = 1; i < s.length(); i++) {
-						if (!isalnum(s[i]) && s[i] != '_') {
-							res = false;
-							break;
-						}
-					}
-				}
-				else res = false;
-				return res;
-			}
-			string removeQuotes(string s) {
-				return s.substr(1, s.length() - 2);
-			}
-			/**
-			 * This method is used to change the operator to invertible one
-			 * in "not_expr" terms, e.g. not_expr("3>5") becomes expr("3<=5").
-			 */
-			string replaceInvertibleOperator(string expr) {
-				typedef pair<string, string> string_pair;
-
-				vector<string_pair> invertibleOperators;
-
-				invertibleOperators.push_back(make_pair("==", "!="));
-				invertibleOperators.push_back(make_pair("!=", "=="));
-				invertibleOperators.push_back(make_pair(">=", "<"));
-				invertibleOperators.push_back(make_pair("<=", ">"));
-				invertibleOperators.push_back(make_pair(">", "<="));
-				invertibleOperators.push_back(make_pair("<", ">="));
-
-				BOOST_FOREACH (string_pair invertibleOperator, invertibleOperators) {
-					if (expr.find (invertibleOperator.first) != string::npos) {
-						boost::replace_all(expr, invertibleOperator.first, invertibleOperator.second);
-						break;
-					}
-				}
-
-				return expr;
-			}
 	};
     
 	//

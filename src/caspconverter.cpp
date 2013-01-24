@@ -1,4 +1,6 @@
 #include "casp/caspconverter.h"
+#include "casp/utility.h"
+
 #include <boost/tokenizer.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
@@ -15,30 +17,6 @@ CaspConverter::CaspConverter() {
 
 CaspConverter::~CaspConverter() {
 
-}
-
-bool isSeparator(string s) {
-	return s == "," || s == "v" || s == "." || s == ":" || s == "-" || s == "not" || s == "!";
-}
-
-bool isVariable(string s) {
-	bool res = true;
-	if (s[0] >= 'A' && s[0] <= 'Z') {
-		for (int i = 1; i < s.length(); i++) {
-			if (!isalnum(s[i]) && s[i] != '_') {
-				res = false;
-				break;
-			}
-		}
-	} else
-		res = false;
-	return res;
-}
-
-string getValueInsideBrackets(string s) {
-	int startIndex = s.find("(") + 1;
-	int endIndex = s.find(")");
-	return s.substr(startIndex, endIndex - startIndex);
 }
 
 void CaspConverter::convert(istream& i, ostream& o) {
@@ -66,7 +44,7 @@ void CaspConverter::convert(istream& i, ostream& o) {
 		if (stop)
 			continue;
 
-		char_separator<char> sep("", " ,v.:-$%", drop_empty_tokens);
+		char_separator<char> sep("", " ,v.:-$%()", drop_empty_tokens);
 
 		tokenizer<char_separator<char> > tokens(input, sep);
 		vector<string> tokensList;
@@ -94,37 +72,64 @@ void CaspConverter::convert(istream& i, ostream& o) {
 					token = token.substr(mainOperatorLength);
 
 					string caspExpression = "";
+
+					// Check whether all brackets were closed properly
+					int bracketsCount = 0;
 					// write everything to the left part of expression
+					int startIndex = -1;
+
 					for (int i = expressions.size() - 1; i >= 0; i--) {
-						if (isSeparator(expressions[i])) {
-							for (int j = 0; j <= i; j++) {
-								o << expressions[j];
-							}
+						if (expressions[i] == ")") bracketsCount++;
+						else if (expressions[i] == "(") bracketsCount--;
+
+						if (isSeparator(expressions[i]) && bracketsCount == 0) {
+							startIndex = i;
 							break;
-						} else {
-							if (isVariable(expressions[i]))
-								variables.push_back(expressions[i]);
-							if (starts_with(expressions[i], "sum")) {
-								// transform sum(p) to sum_p for proper parsing
-								sumPredicates.push_back(getValueInsideBrackets(expressions[i]));
-								expressions[i] = "sum_" + getValueInsideBrackets(expressions[i]);
-							}
-							caspExpression = expressions[i] + caspExpression;
 						}
+					}
+
+					for (int i = 0; i <= startIndex; i++) {
+						o << expressions[i];
+					}
+					for (int i = startIndex + 1; i < expressions.size(); i++) {
+						if (isVariable(expressions[i]))
+							variables.push_back(expressions[i]);
+						if (starts_with(expressions[i], "sum")) {
+							// transform sum(p) to sum_p for proper parsing
+							sumPredicates.push_back(getValueInsideBrackets(expressions[i]));
+							expressions[i] = "sum_" + getValueInsideBrackets(expressions[i]);
+						}
+						caspExpression += expressions[i];
 					}
 					expressions.clear();
 
-					// write everything to the right part of expression
+					// write everything to the right part of expression, which is not in brackets
+					bracketsCount = 0;
+
 					it++;
 					while (it != tokens.end()) {
 						token = *it;
 
-						if (isSeparator(token)) {
+						if (token == ")") bracketsCount++;
+						else if (token == "(") bracketsCount--;
+
+						if (isSeparator(token) && bracketsCount == 0) {
+							// In each line, following replacements are done back and forth
+							// '(' - '{'
+							// ')' - '}'
+							// ',' - ';'
+							// This is due to the fact that hex parser splits improperly them inside of string term
+							boost::replace_all(caspExpression, "(", "{");
+							boost::replace_all(caspExpression, ")", "}");
+							boost::replace_all(caspExpression, ",", ";");
+
 							o << "expr" << variables.size() << "(\"" << caspExpression << "\"";
 							for (int i = 0; i < variables.size(); i++) {
 								o << "," << variables[i];
 							}
 							o << ")" << token;
+
+							variables.clear();
 
 							break;
 						} else if (token != "$") {
@@ -145,8 +150,9 @@ void CaspConverter::convert(istream& i, ostream& o) {
 				}
 			}
 		}
-		for (int i = 0; i < expressions.size(); i++)
+		for (int i = 0; i < expressions.size(); i++) {
 			o << expressions[i];
+		}
 		o << endl;
 
 		expressions.clear();
