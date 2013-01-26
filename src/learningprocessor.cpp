@@ -11,7 +11,6 @@ using namespace dlvhex;
 using namespace std;
 
 // TODO: add special case check for last constraint
-
 void NoLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions, vector<ID> atomIds, GecodeSolver* solver) {
 }
 
@@ -146,6 +145,14 @@ void BackwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<
 	nogoods->addNogood(nogood);
 }
 
+/**
+ * @brief This helper method compares two possible constraints in CC learning.
+ * The constraint is represent by pair <i,j> where i - the weight of constraint, j - index
+ */
+bool compareWeightedConstraints(pair<int, int> x, pair<int, int> y) {
+	return x.first > y.first;
+}
+
 void CCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions, vector<ID> atomIds, GecodeSolver* solver) {
 	GecodeSolver *otherSolver = static_cast<GecodeSolver*>(solver->clone());
 
@@ -170,10 +177,7 @@ void CCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string
 
 		int propagateIndex = -1;
 
-		// We will firstly put to process connected indexes
-		// and later not connected
-		vector<int> connectedIndexes;
-		vector<int> disconnectedIndexes;
+		vector<pair<int, int> > weightedConstraints;
 
 		for (int i = 0; i < expressions.size(); i++) {
 			if (processedFlags[i])
@@ -183,16 +187,15 @@ void CCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string
 			vector<string>::iterator it = set_intersection(currentVariables.begin(), currentVariables.end(),
 					expressionVariables[i].begin(), expressionVariables[i].end(), intersectionResult.begin());
 
-			int size = int(it - intersectionResult.begin());
-			if (size != 0) connectedIndexes.push_back(i);
-			else disconnectedIndexes.push_back(i);
+			int size = int(it - intersectionResult.begin()) > 0 ? 1 : 0;
+
+			pair<int, int> weightedConstraint(size, i);
+			weightedConstraints.push_back(weightedConstraint);
 		}
+		sort (weightedConstraints.begin(), weightedConstraints.end(), compareWeightedConstraints);
 
-		// Simply append disconnected to the end of connected list
-		connectedIndexes.insert(connectedIndexes.end(), disconnectedIndexes.begin(), disconnectedIndexes.end());
-
-		for (int i = 0; i < connectedIndexes.size(); i++) {
-			int index = connectedIndexes[i];
+		for (int i = 0; i < weightedConstraints.size(); i++) {
+			int index = weightedConstraints[i].second;
 			innerSolver->propagate(expressions[index]);
 
 			Gecode::BAB<GecodeSolver> solutions(innerSolver);
@@ -228,4 +231,82 @@ void CCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string
 void WeightedCCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions, vector<ID> atomIds,
 		GecodeSolver* solver) {
 
+	GecodeSolver *otherSolver = static_cast<GecodeSolver*>(solver->clone());
+
+	vector<set<string> > expressionVariables(expressions.size());
+	for (int i = 0; i < expressions.size(); i++) {
+		ParseTree *root;
+		_simpleParser->makeTree(expressions[i], &root);
+		expressionVariables[i] = _simpleParser->getConstraintVariables(root);
+		_simpleParser->deleteTree(root);
+	}
+
+	vector<bool> processedFlags(expressions.size());
+	for (int i = 0; i < expressions.size(); i++) {
+		processedFlags[i] = 0;
+	}
+
+	vector<ID> iis;
+	set<string> currentVariables;
+
+	cout << "IIS: ";
+
+	while (true) {
+		GecodeSolver *innerSolver = static_cast<GecodeSolver*>(otherSolver->clone());
+
+		int propagateIndex = -1;
+
+		vector<pair<int, int> > weightedConstraints;
+
+		for (int i = 0; i < expressions.size(); i++) {
+			if (processedFlags[i])
+				continue;
+			vector<string> intersectionResult (currentVariables.size() + expressionVariables[i].size());
+
+			vector<string>::iterator it = set_intersection(currentVariables.begin(), currentVariables.end(),
+					expressionVariables[i].begin(), expressionVariables[i].end(), intersectionResult.begin());
+
+			int size = int(it - intersectionResult.begin());
+
+			pair<int, int> weightedConstraint(size, i);
+			weightedConstraints.push_back(weightedConstraint);
+		}
+		sort (weightedConstraints.begin(), weightedConstraints.end(), compareWeightedConstraints);
+
+		for (int i = 0; i < weightedConstraints.size(); i++) {
+			int index = weightedConstraints[i].second;
+			innerSolver->propagate(expressions[index]);
+
+			Gecode::BAB<GecodeSolver> solutions(innerSolver);
+			// If it is inconsistent, IIS found, break
+			if (!solutions.next()) {
+				processedFlags[i] = 1;
+				propagateIndex = index;
+				break;
+			}
+		}
+
+		if (propagateIndex == -1)
+			break;
+
+		cout << expressions[propagateIndex] << " ";
+
+		otherSolver->propagate(expressions[propagateIndex]);
+		iis.push_back(atomIds[propagateIndex]);
+		currentVariables.insert(expressionVariables[propagateIndex].begin(), expressionVariables[propagateIndex].end());
+
+		Gecode::BAB<GecodeSolver> solutions(otherSolver);
+		if (!solutions.next()) {
+			break;
+		}
+	}
+	delete otherSolver;
+	cout << endl;
+	cout << nogoods << endl;
+
+	Nogood nogood;
+	BOOST_FOREACH(ID atomId, iis) {
+		nogood.insert(NogoodContainer::createLiteral(atomId));
+	}
+	nogoods->addNogood(nogood);
 }
