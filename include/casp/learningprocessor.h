@@ -45,9 +45,25 @@ public:
 				vector<ID> atomIds, GecodeSolver *solver);
 };
 
+class JumpForwardLearningProcessor : public LearningProcessor {
+public:
+	JumpForwardLearningProcessor(boost::shared_ptr<SimpleParser> simpleParser):
+				LearningProcessor(simpleParser) {}
+	virtual void learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions,
+				vector<ID> atomIds, GecodeSolver *solver);
+};
+
 class BackwardLearningProcessor : public LearningProcessor {
 public:
 	BackwardLearningProcessor(boost::shared_ptr<SimpleParser> simpleParser):
+				LearningProcessor(simpleParser) {}
+	virtual void learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions,
+				vector<ID> atomIds, GecodeSolver *solver);
+};
+
+class RangeLearningProcessor : public LearningProcessor {
+public:
+	RangeLearningProcessor(boost::shared_ptr<SimpleParser> simpleParser):
 				LearningProcessor(simpleParser) {}
 	virtual void learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions,
 				vector<ID> atomIds, GecodeSolver *solver);

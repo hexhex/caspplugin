@@ -1,10 +1,3 @@
-/*
- * gecodesolver.h
- *
- *  Created on: Nov 22, 2012
- *      Author: faeton
- */
-
 #ifndef GECODESOLVER_H_
 #define GECODESOLVER_H_
 

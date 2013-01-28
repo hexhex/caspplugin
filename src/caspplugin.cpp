@@ -117,7 +117,7 @@ namespace dlvhex {
 						// Replace all ASP variables with their actual values.
 						int variableIndex = 2;
 
-						boost::char_separator<char> sep(" ", ",v.:-$%<>=+-/*\"<>=", boost::drop_empty_tokens);
+						boost::char_separator<char> sep(" ", ",v.:-$%<>=+-/*\"<>=()", boost::drop_empty_tokens);
 
 						std::string result = "";
 						boost::tokenizer<boost::char_separator<char> > tokens(expr, sep);
@@ -131,8 +131,12 @@ namespace dlvhex {
 									os << id.address;
 									res = os.str();
 								}
-								else
+								else if (id.isTerm()) {
 									res = registry.terms.getByID(id).symbol;
+								}
+								else if (id.isOrdinaryAtom()) {
+									res = registry.lookupOrdinaryAtom(id).text;
+								}
 								result += res;
 							}
 							else result += val;
@@ -154,7 +158,7 @@ namespace dlvhex {
 					Tuple out;
 					answer.get().push_back(out);
 				}
-				else { // otherwise we need to learn IIS from it
+				else if (nogoods != 0){ // otherwise we need to learn IIS from it
 					GecodeSolver* otherSolver = new GecodeSolver(sumData, domain, globalConstraintName, globalConstraintValue, _simpleParser);
 					_learningProcessor->learnNogoods(nogoods, expressions, atomIds, otherSolver);
 					delete otherSolver;
@@ -189,7 +193,13 @@ namespace dlvhex {
 				setNameVersion(PACKAGE_TARNAME,CASPPLUGIN_VERSION_MAJOR,CASPPLUGIN_VERSION_MINOR,CASPPLUGIN_VERSION_MICRO);
 			}
 		
-    		/**
+    		/**	Gecode::BAB<GecodeSolver> solutions(innerSolver);
+				// If it is inconsistent, IIS found, break
+				if (!solutions.next()) {
+					processedFlags[i] = 1;
+					propagateIndex = i;
+					break;
+
     		 * @brief Creates single consistency atom
     		 */
 			virtual std::vector<PluginAtomPtr> createAtoms(ProgramCtx&) const
@@ -207,12 +217,14 @@ namespace dlvhex {
 			virtual void printUsage(std::ostream& o) const {
 				o << "     --csplearning=[none,deletion,forward,backward,cc,wcc] " << endl;
 				o << "                   Enable csp learning(none by default)." << endl;
-				o << "                   none       - No learning." << endl;
-				o << "                   deletion   - Deletion filtering learning." << endl;
-				o << "                   forward    - Forward filtering learning." << endl;
-				o << "                   backward   - Backward filtering learning." << endl;
-				o << "                   cc         - Connected component filtering learning." << endl;
-				o << "                   wcc        - Weighted connected component filtering learning." << endl;
+				o << "                   none        - No learning." << endl;
+				o << "                   deletion    - Deletion filtering learning." << endl;
+				o << "                   forward     - Forward filtering learning." << endl;
+				o << "                   jumpforward - Jump forward filtering learning." << endl;
+				o << "                   backward    - Backward filtering learning." << endl;
+				o << "                   range       - Range filtering learning." << endl;
+				o << "                   cc          - Connected component filtering learning." << endl;
+				o << "                   wcc         - Weighted connected component filtering learning." << endl;
 			}
       
 			/**
@@ -238,8 +250,14 @@ namespace dlvhex {
 						else if (processorName == "forward") {
 							_learningProcessor = boost::shared_ptr<LearningProcessor>(new ForwardLearningProcessor(_simpleParser));
 						}
+						else if (processorName == "jumpforward") {
+							_learningProcessor = boost::shared_ptr<LearningProcessor>(new JumpForwardLearningProcessor(_simpleParser));
+						}
 						else if (processorName == "backward") {
 							_learningProcessor = boost::shared_ptr<LearningProcessor>(new BackwardLearningProcessor(_simpleParser));
+						}
+						else if (processorName == "range") {
+							_learningProcessor = boost::shared_ptr<LearningProcessor>(new RangeLearningProcessor(_simpleParser));
 						}
 						else if (processorName == "cc") {
 							_learningProcessor = boost::shared_ptr<LearningProcessor>(new CCLearningProcessor(_simpleParser));

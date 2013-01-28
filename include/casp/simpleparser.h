@@ -1,15 +1,9 @@
-/*
- * simpleparser.h
- *
- *  Created on: Dec 3, 2012
- *      Author: faeton
- */
-
 #ifndef SIMPLEPARSER_H_
 #define SIMPLEPARSER_H_
 
 #include <string>
 #include <map>
+#include <set>
 
 using namespace std;
 
@@ -34,6 +28,7 @@ private:
 	string convertToPostfix(string infix);
 public:
 	SimpleParser();
+	set<string> getConstraintVariables(struct ParseTree* root);
 	void makeTree(string infix, struct ParseTree** root);
 	void deleteTree(struct ParseTree* root);
 };

@@ -11,7 +11,6 @@
 using namespace std;
 using namespace dlvhex;
 
-
 CaspRewriter::CaspRewriter() {
 
 }
@@ -25,15 +24,6 @@ void CaspRewriter::rewriteRule(ProgramCtx& ctx, vector<ID>& idb, ID ruleID) {
 	const Rule& rule = reg->rules.getByID(ruleID);
 
 	bool needRewrite = false;
-	BOOST_FOREACH(ID atomId, rule.head) {
-			if (!(atomId.isExternalAtom()) && !(atomId.isBuiltinAtom())) {
-				const OrdinaryAtom& atom = reg->lookupOrdinaryAtom(atomId);
-				if (boost::starts_with(atom.text, "expr")) {
-					needRewrite = true;
-					break;
-				}
-			}
-		}
 	BOOST_FOREACH(ID atomId, rule.body) {
 		if (!(atomId.isExternalAtom()) && !(atomId.isBuiltinAtom())) {
 			const OrdinaryAtom& atom = reg->lookupOrdinaryAtom(atomId);
@@ -45,21 +35,28 @@ void CaspRewriter::rewriteRule(ProgramCtx& ctx, vector<ID>& idb, ID ruleID) {
 	}
 
 	if (needRewrite) {
-		vector<ID> newBody = rule.body;
-
 		vector<ID> bodyWithoutCasp;
 		vector<ID> caspIds;
 
-		BOOST_FOREACH (ID bodyAtomId, newBody) {
-			const OrdinaryAtom& atom = reg->lookupOrdinaryAtom(bodyAtomId);
-			if (boost::starts_with(atom.text, "expr"))
-				caspIds.push_back(bodyAtomId);
-			else
-				bodyWithoutCasp.push_back(bodyAtomId);
+		BOOST_FOREACH (ID bodyAtomId, rule.body) {
+			if (bodyAtomId.isOrdinaryAtom()) {
+				const OrdinaryAtom& atom = reg->lookupOrdinaryAtom(bodyAtomId);
+
+				if (boost::starts_with(atom.text, "expr")) {
+					caspIds.push_back(ID(bodyAtomId));
+
+				}
+				else {
+					bodyWithoutCasp.push_back(ID(bodyAtomId));
+				}
+			}
+			else {
+				bodyWithoutCasp.push_back(ID(bodyAtomId));
+			}
 		}
 
 		BOOST_FOREACH (ID caspId, caspIds) {
-			Rule newRule = rule;
+			Rule newRule = Rule(rule);
 			newRule.kind = ID::MAINKIND_RULE | ID::SUBKIND_RULE_REGULAR;
 
 			newRule.body = bodyWithoutCasp;
@@ -68,7 +65,6 @@ void CaspRewriter::rewriteRule(ProgramCtx& ctx, vector<ID>& idb, ID ruleID) {
 			newRule.head.push_back(ID::posLiteralFromAtom(ID::atomFromLiteral(caspId)));
 
 			OrdinaryAtom auxCaspAtom = reg->lookupOrdinaryAtom(caspId);
-
 			Term t = reg->terms.getByID(auxCaspAtom.tuple[0]);
 
 			string negatedSymbol = "not_" + t.symbol;
@@ -77,8 +73,7 @@ void CaspRewriter::rewriteRule(ProgramCtx& ctx, vector<ID>& idb, ID ruleID) {
 				t.symbol = negatedSymbol;
 
 				auxCaspAtom.tuple[0] = reg->terms.storeAndGetID(t);
-			}
-			else {
+			} else {
 				auxCaspAtom.tuple[0] = negatedId;
 			}
 

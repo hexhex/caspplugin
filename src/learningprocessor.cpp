@@ -59,7 +59,7 @@ void ForwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<s
 
 		int propagateIndex = -1;
 		for (int i = 0; i < expressions.size(); i++) {
-			if (processedFlags[i])
+			if (processedFlags[i] == 1)
 				continue;
 
 			innerSolver->propagate(expressions[i]);
@@ -67,11 +67,68 @@ void ForwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<s
 			Gecode::BAB<GecodeSolver> solutions(innerSolver);
 			// If it is inconsistent, IIS found, break
 			if (!solutions.next()) {
-				processedFlags[i] = 1;
 				propagateIndex = i;
 				break;
 			}
 		}
+
+		delete innerSolver;
+
+		if (propagateIndex == -1)
+			break;
+
+		processedFlags[propagateIndex] = 1;
+		otherSolver->propagate(expressions[propagateIndex]);
+		iis.push_back(atomIds[propagateIndex]);
+
+		Gecode::BAB<GecodeSolver> solutions(otherSolver);
+		if (!solutions.next()) {
+			break;
+		}
+	}
+	delete otherSolver;
+
+	Nogood nogood;
+	BOOST_FOREACH(ID atomId, iis) {
+		nogood.insert(NogoodContainer::createLiteral(atomId));
+	}
+	nogoods->addNogood(nogood);
+}
+
+void JumpForwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions, vector<ID> atomIds,
+		GecodeSolver* solver) {
+
+	int jumpSize = 2;
+
+	GecodeSolver *otherSolver = static_cast<GecodeSolver*>(solver->clone());
+
+	vector<bool> processedFlags(expressions.size());
+	for (int i = 0; i < expressions.size(); i++)
+		processedFlags[i] = 0;
+
+	vector<ID> iis;
+
+	while (true) {
+		GecodeSolver *innerSolver = static_cast<GecodeSolver*>(otherSolver->clone());
+
+		int propagateIndex = -1;
+		for (int i = 0; i < expressions.size(); i++) {
+			if (processedFlags[i])
+				continue;
+
+			innerSolver->propagate(expressions[i]);
+
+			if (i % jumpSize == 0 || i == expressions.size() - 1) {
+				Gecode::BAB<GecodeSolver> solutions(innerSolver);
+				// If it is inconsistent, IIS found, break
+				if (!solutions.next()) {
+					processedFlags[i] = 1;
+					propagateIndex = i;
+					break;
+				}
+			}
+		}
+		delete innerSolver;
 
 		if (propagateIndex == -1)
 			break;
@@ -124,12 +181,59 @@ void BackwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<
 				break;
 			}
 		}
+		delete innerSolver;
 
 		if (propagateIndex == -1)
 			break;
 
 		otherSolver->propagate(expressions[propagateIndex]);
 		iis.push_back(atomIds[propagateIndex]);
+
+		Gecode::BAB<GecodeSolver> solutions(otherSolver);
+		if (!solutions.next()) {
+			break;
+		}
+	}
+	delete otherSolver;
+
+	Nogood nogood;
+	BOOST_FOREACH(ID atomId, iis) {
+		nogood.insert(NogoodContainer::createLiteral(atomId));
+	}
+	nogoods->addNogood(nogood);
+}
+
+void RangeLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions, vector<ID> atomIds,
+		GecodeSolver* solver) {
+
+	GecodeSolver *otherSolver = static_cast<GecodeSolver*>(solver->clone());
+
+	vector<ID> iis;
+
+	while (true) {
+		GecodeSolver *innerSolver = static_cast<GecodeSolver*>(otherSolver->clone());
+
+		vector<int> propagateIndexes;
+		for (int i = 0; i < expressions.size(); i++) {
+			propagateIndexes.push_back(i);
+			innerSolver->propagate(expressions[i]);
+
+			Gecode::BAB<GecodeSolver> solutions(innerSolver);
+			// If it is inconsistent, IIS found, break
+			if (!solutions.next()) {
+				break;
+			}
+		}
+		delete innerSolver;
+
+		if (propagateIndexes.empty())
+			break;
+
+		for (int i = 0; i < propagateIndexes.size(); i++) {
+			int propagateIndex = propagateIndexes[i];
+			otherSolver->propagate(expressions[propagateIndex]);
+			iis.push_back(atomIds[propagateIndex]);
+		}
 
 		Gecode::BAB<GecodeSolver> solutions(otherSolver);
 		if (!solutions.next()) {
@@ -192,6 +296,7 @@ void CCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string
 			pair<int, int> weightedConstraint(size, i);
 			weightedConstraints.push_back(weightedConstraint);
 		}
+		delete innerSolver;
 		sort (weightedConstraints.begin(), weightedConstraints.end(), compareWeightedConstraints);
 
 		for (int i = 0; i < weightedConstraints.size(); i++) {
@@ -249,8 +354,6 @@ void WeightedCCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vecto
 	vector<ID> iis;
 	set<string> currentVariables;
 
-	cout << "IIS: ";
-
 	while (true) {
 		GecodeSolver *innerSolver = static_cast<GecodeSolver*>(otherSolver->clone());
 
@@ -271,6 +374,7 @@ void WeightedCCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vecto
 			pair<int, int> weightedConstraint(size, i);
 			weightedConstraints.push_back(weightedConstraint);
 		}
+		delete innerSolver;
 		sort (weightedConstraints.begin(), weightedConstraints.end(), compareWeightedConstraints);
 
 		for (int i = 0; i < weightedConstraints.size(); i++) {
@@ -289,8 +393,6 @@ void WeightedCCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vecto
 		if (propagateIndex == -1)
 			break;
 
-		cout << expressions[propagateIndex] << " ";
-
 		otherSolver->propagate(expressions[propagateIndex]);
 		iis.push_back(atomIds[propagateIndex]);
 		currentVariables.insert(expressionVariables[propagateIndex].begin(), expressionVariables[propagateIndex].end());
@@ -301,8 +403,6 @@ void WeightedCCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vecto
 		}
 	}
 	delete otherSolver;
-	cout << endl;
-	cout << nogoods << endl;
 
 	Nogood nogood;
 	BOOST_FOREACH(ID atomId, iis) {

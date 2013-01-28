@@ -1,12 +1,7 @@
-/*
-R * gecodesolver.cpp
- *
- *  Created on: Dec 3, 2012
- *      Author: faeton
- */
-
 #include <string>
 #include <map>
+
+#include <dlvhex2/Error.h>
 
 #include <gecode/driver.hh>
 
@@ -26,7 +21,7 @@ GecodeSolver::GecodeSolver(vector<string> sumData, string domain,
 		string globalConstraintName, string globalConstraintValue, boost::shared_ptr<SimpleParser> simpleParser) :
 			_simpleParser(simpleParser) {
 
-	if (domain == "") domain = "1..10";
+	if (domain == "") throw dlvhex::PluginError("No domain specified");
 
 	_sumData = sumData;
 
@@ -61,7 +56,6 @@ void GecodeSolver::propagate(vector<string> expressions) {
 	}
 }
 
-// TODO: cache parsed trees
 void GecodeSolver::propagate(string expression) {
 	// If the expression is not specified, ignore it
 	// This could be the case for learning

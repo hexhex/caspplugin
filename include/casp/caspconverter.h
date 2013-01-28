@@ -1,10 +1,3 @@
-/*
- * CaspConcerter.h
- *
- *  Created on: Dec 17, 2012
- *      Author: faeton
- */
-
 #ifndef CASPCONVERTER_H_
 #define CASPCONVERTER_H_
 
@@ -17,7 +10,6 @@ public:
 	virtual ~CaspConverter();
 
 	virtual void convert(std::istream& i, std::ostream& o);
-	std::pair<int, int> getDomain();
 };
 
 

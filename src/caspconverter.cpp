@@ -44,13 +44,17 @@ void CaspConverter::convert(istream& i, ostream& o) {
 		if (stop)
 			continue;
 
-		char_separator<char> sep("", " ,v.:-$%()", drop_empty_tokens);
+		char_separator<char> sep("", " ,v.:-$%()<>=!+-/*", drop_empty_tokens);
 
 		tokenizer<char_separator<char> > tokens(input, sep);
 		vector<string> tokensList;
 		for (tokenizer<char_separator<char> >::iterator it = tokens.begin(); it != tokens.end(); ++it) {
 			string token = *it;
+			tokensList.push_back(token);
+		}
 
+		for (int k = 0; k < tokensList.size(); k++) {
+			string token = tokensList[k];
 			if (token == "%") {
 				break;
 			} else if (token == "$") {
@@ -60,17 +64,19 @@ void CaspConverter::convert(istream& i, ostream& o) {
 			}
 
 			if (cspExpression) {
-				int mainOperatorLength = -1;
-				if (boost::starts_with(token, ">=") || boost::starts_with(token, "<=") || boost::starts_with(token, "=="))
-					mainOperatorLength = 2;
-				else if (boost::starts_with(token, ">") || boost::starts_with(token, "<"))
-					mainOperatorLength = 1;
+				bool op = false;
 
-				if (mainOperatorLength != -1) {
-					string op = token.substr(0, mainOperatorLength);
+				if (token == ">" || token == "<" || token == "!" || token == "=") {
+					if (tokensList[k+1] == "=") {
+						k++;
+						token += tokensList[k];
 
-					token = token.substr(mainOperatorLength);
+						expressions[expressions.size() - 1] = token;
+					}
+					op = true;
+				}
 
+				if (op) {
 					string caspExpression = "";
 
 					// Check whether all brackets were closed properly
@@ -84,6 +90,7 @@ void CaspConverter::convert(istream& i, ostream& o) {
 
 						if (isSeparator(expressions[i]) && bracketsCount == 0) {
 							startIndex = i;
+							if (expressions[i] == ":") startIndex++;
 							break;
 						}
 					}
@@ -106,9 +113,9 @@ void CaspConverter::convert(istream& i, ostream& o) {
 					// write everything to the right part of expression, which is not in brackets
 					bracketsCount = 0;
 
-					it++;
-					while (it != tokens.end()) {
-						token = *it;
+					k++;
+					while (k < tokensList.size()) {
+						token = tokensList[k];
 
 						if (token == ")") bracketsCount++;
 						else if (token == "(") bracketsCount--;
@@ -144,7 +151,7 @@ void CaspConverter::convert(istream& i, ostream& o) {
 							caspExpression += token;
 						}
 
-						it++;
+						k++;
 					}
 					cspExpression = false;
 				}
