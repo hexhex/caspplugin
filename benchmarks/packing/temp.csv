@@ -1,4 +1,0 @@
-instance, deletion, forward, backward, jumpforward, range, cc, wcc
-instance, deletion, forward, backward, jumpforward, range, cc, wcc
-instance, deletion, forward, backward, jumpforward, range, cc, wcc
-1-packing-0-0.hex , 678.281 , 82.047 , 61.958 , ./benchmark.sh: line 10: 3193 Aborted (core dumped) dlvhex2 --extlearn --heuristics=monolithic --csplearning=jumpforward --silent $instance 2> /dev/null 133.666 , ./benchmark.sh: line 11: 3199 Aborted (core dumped) dlvhex2 --extlearn --heuristics=monolithic --csplearning=range --silent $instance 2> /dev/null 3895.278 , ./benchmark.sh: line 12: 3996 Segmentation fault (core dumped) dlvhex2 --extlearn --heuristics=monolithic --csplearning=cc --silent $instance 2> /dev/null 16.532 , ./benchmark.sh: line 13: 4002 Segmentation fault (core dumped) dlvhex2 --extlearn --heuristics=monolithic --csplearning=wcc --silent $instance 2> /dev/null 16.847
