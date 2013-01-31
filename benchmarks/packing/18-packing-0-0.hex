@@ -1,0 +1,46 @@
+%% Generator
+
+$domain(0..10000).
+
+posx(X) :- square(X,S), area(W,H), X $<= W-S .
+posy(X) :- square(X,S), area(W,H), X $<= H-S.
+
+intersectx(X1,X2) :- square(X1,S1), square(X2,S2), posx(X1), posx(X2), X1 $<= X2,     X1$+S1$>X2, X1 != X2.
+intersectx(X1,X2) :- square(X1,S1), square(X2,S2), posx(X1), posx(X2), X1 $< X2$+S2,  X1$+S1$>X2$+S2, X1 != X2.
+
+intersecty(X1,X2) :- square(X1,S1), square(X2,S2), posy(X1), posy(X2), X1 $<= X2,     X1$+S1$>X2,     X1 != X2.
+intersecty(X1,X2) :- square(X1,S1), square(X2,S2), posy(X1), posy(X2), X1 $<  X2$+S2, X1$+S1$>X2$+S2, X1 != X2.
+
+intersectx(X1,X2) :- intersectx(X2,X1), square(X1,S1), square(X2,S2).
+intersecty(X1,X2) :- intersecty(X2,X1), square(X1,S1), square(X2,S2).
+:- intersectx(X1,X2), intersecty(X1,X2).
+
+area(200,100).
+max_square_num(27).
+square(1,54).
+square(2,45).
+square(3,70).
+square(4,26).
+square(5,10).
+square(6,5).
+square(7,25).
+square(8,23).
+square(9,10).
+square(10,5).
+square(11,4).
+square(12,25).
+square(13,14).
+square(14,15).
+square(15,21).
+square(16,27).
+square(17,14).
+square(18,4).
+square(19,17).
+square(20,14).
+square(21,10).
+square(22,6).
+square(23,23).
+square(24,25).
+square(25,10).
+square(26,20).
+square(27,17).
