@@ -154,6 +154,7 @@ void BackwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<
 		GecodeSolver* solver) {
 
 	reverse(expressions.begin(), expressions.end());
+	reverse(atomIds.begin(), atomIds.end());
 
 	GecodeSolver *otherSolver = static_cast<GecodeSolver*>(solver->clone());
 
@@ -206,36 +207,20 @@ void BackwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<
 void RangeLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions, vector<ID> atomIds,
 		GecodeSolver* solver) {
 
+	reverse(expressions.begin(), expressions.end());
+	reverse(atomIds.begin(), atomIds.end());
+
 	GecodeSolver *otherSolver = static_cast<GecodeSolver*>(solver->clone());
 
+	// Note, that here actually not iis is computer, but approximation
 	vector<ID> iis;
 
-	while (true) {
-		GecodeSolver *innerSolver = static_cast<GecodeSolver*>(otherSolver->clone());
-
-		vector<int> propagateIndexes;
-		for (int i = 0; i < expressions.size(); i++) {
-			propagateIndexes.push_back(i);
-			innerSolver->propagate(expressions[i]);
-
-			Gecode::BAB<GecodeSolver> solutions(innerSolver);
-			// If it is inconsistent, IIS found, break
-			if (!solutions.next()) {
-				break;
-			}
-		}
-		delete innerSolver;
-
-		if (propagateIndexes.empty())
-			break;
-
-		for (int i = 0; i < propagateIndexes.size(); i++) {
-			int propagateIndex = propagateIndexes[i];
-			otherSolver->propagate(expressions[propagateIndex]);
-			iis.push_back(atomIds[propagateIndex]);
-		}
+	for (int i = 0; i < expressions.size(); i++) {
+		otherSolver->propagate(expressions[i]);
+		iis.push_back(atomIds[i]);
 
 		Gecode::BAB<GecodeSolver> solutions(otherSolver);
+		// If it is inconsistent, select current subset as candidate
 		if (!solutions.next()) {
 			break;
 		}
@@ -286,23 +271,23 @@ void CCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string
 		for (int i = 0; i < expressions.size(); i++) {
 			if (processedFlags[i])
 				continue;
-			vector<string> intersectionResult (currentVariables.size() + expressionVariables[i].size());
+			vector<string> intersectionResult(currentVariables.size() + expressionVariables[i].size());
 
-			vector<string>::iterator it = set_intersection(currentVariables.begin(), currentVariables.end(),
-					expressionVariables[i].begin(), expressionVariables[i].end(), intersectionResult.begin());
+			vector<string>::iterator it = set_intersection(currentVariables.begin(), currentVariables.end(), expressionVariables[i].begin(),
+					expressionVariables[i].end(), intersectionResult.begin());
 
 			int size = int(it - intersectionResult.begin()) > 0 ? 1 : 0;
 
 			pair<int, int> weightedConstraint(size, i);
 			weightedConstraints.push_back(weightedConstraint);
 		}
-		delete innerSolver;
-		sort (weightedConstraints.begin(), weightedConstraints.end(), compareWeightedConstraints);
+
+		sort(weightedConstraints.begin(), weightedConstraints.end(), compareWeightedConstraints);
 
 		for (int i = 0; i < weightedConstraints.size(); i++) {
 			int index = weightedConstraints[i].second;
-			innerSolver->propagate(expressions[index]);
 
+			innerSolver->propagate(expressions[index]);
 			Gecode::BAB<GecodeSolver> solutions(innerSolver);
 			// If it is inconsistent, IIS found, break
 			if (!solutions.next()) {
@@ -311,6 +296,7 @@ void CCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string
 				break;
 			}
 		}
+		delete innerSolver;
 
 		if (propagateIndex == -1)
 			break;
@@ -364,18 +350,17 @@ void WeightedCCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vecto
 		for (int i = 0; i < expressions.size(); i++) {
 			if (processedFlags[i])
 				continue;
-			vector<string> intersectionResult (currentVariables.size() + expressionVariables[i].size());
+			vector<string> intersectionResult(currentVariables.size() + expressionVariables[i].size());
 
-			vector<string>::iterator it = set_intersection(currentVariables.begin(), currentVariables.end(),
-					expressionVariables[i].begin(), expressionVariables[i].end(), intersectionResult.begin());
+			vector<string>::iterator it = set_intersection(currentVariables.begin(), currentVariables.end(), expressionVariables[i].begin(),
+					expressionVariables[i].end(), intersectionResult.begin());
 
 			int size = int(it - intersectionResult.begin());
 
 			pair<int, int> weightedConstraint(size, i);
 			weightedConstraints.push_back(weightedConstraint);
 		}
-		delete innerSolver;
-		sort (weightedConstraints.begin(), weightedConstraints.end(), compareWeightedConstraints);
+		sort(weightedConstraints.begin(), weightedConstraints.end(), compareWeightedConstraints);
 
 		for (int i = 0; i < weightedConstraints.size(); i++) {
 			int index = weightedConstraints[i].second;
@@ -389,6 +374,7 @@ void WeightedCCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vecto
 				break;
 			}
 		}
+		delete innerSolver;
 
 		if (propagateIndex == -1)
 			break;
