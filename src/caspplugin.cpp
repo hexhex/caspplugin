@@ -23,6 +23,8 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string.hpp>
 
+#define NDEBUG
+
 namespace dlvhex {
   namespace casp {
 
@@ -43,7 +45,7 @@ namespace dlvhex {
 				_simpleParser(simpleParser)
 			{
 				// This add predicates for all input parameters
-				for (int i = 0; i < 30; i++)
+				for (int i = 0; i < 40; i++)
 					addInputPredicate();
 				
 				setOutputArity(0);
@@ -151,10 +153,15 @@ namespace dlvhex {
 				// Call gecode solver
 				GecodeSolver* solver = new GecodeSolver(sumData, domain, globalConstraintName, globalConstraintValue, _simpleParser);
 				solver->propagate(expressions);
-				Gecode::BAB<GecodeSolver> solutions(solver);
+
+				Gecode::Search::Options opt;
+//				opt.c_d = 0;
+//				opt.a_d = 1000000;
+				Gecode::BAB<GecodeSolver> solutions(solver,opt);
 
 				// If there's at least one solution, then data is consistent
 				if (solutions.next()) {
+//					solver->print(cout);
 					Tuple out;
 					answer.get().push_back(out);
 				}

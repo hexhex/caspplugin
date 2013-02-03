@@ -18,7 +18,7 @@ int SimpleParser::priority(string s)
 		return 3;
 	else if(s == "+" || s == "-")
 		return 2;
-	else if(s == "==" || s == ">" || s == "<" || s == "<=" || s == ">=" || s == "=")
+	else if(s == "==" || s == ">" || s == "<" || s == "<=" || s == ">=" || s == "=" || s == "!=" || s == "!")
 		return 1;
 
 	return 0;
@@ -36,7 +36,7 @@ string SimpleParser::convertToPostfix(string infix)
 
 	stack<string> x;
 
-	char_separator<char> sep(" ", ",v.:-$%+-*/<>=()", drop_empty_tokens);
+	char_separator<char> sep(" ", ",v.:-$%+-*/<>=()!", drop_empty_tokens);
 
 	tokenizer<char_separator<char> > tokens(infix, sep);
 	vector<string> tokenList;
@@ -169,6 +169,7 @@ void SimpleParser::makeTree(string infix, struct ParseTree** root) {
 			elems.push(newTree);
 		}
 	}
+
 	*root = elems.top();
 	elems.pop();
 }

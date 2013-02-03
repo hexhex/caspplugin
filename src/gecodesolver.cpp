@@ -17,11 +17,12 @@
 using namespace Gecode;
 using namespace std;
 
-GecodeSolver::GecodeSolver(vector<string> sumData, string domain,
-		string globalConstraintName, string globalConstraintValue, boost::shared_ptr<SimpleParser> simpleParser) :
-			_simpleParser(simpleParser) {
+GecodeSolver::GecodeSolver(vector<string> sumData, string domain, string globalConstraintName, string globalConstraintValue,
+		boost::shared_ptr<SimpleParser> simpleParser) :
+		_simpleParser(simpleParser) {
 
-	if (domain == "") throw dlvhex::PluginError("No domain specified");
+	if (domain == "")
+		throw dlvhex::PluginError("No domain specified");
 
 	_sumData = sumData;
 
@@ -56,80 +57,108 @@ void GecodeSolver::propagate(vector<string> expressions) {
 	}
 }
 
+Gecode::LinRel makeMainRelation(const Gecode::LinExpr& leftExpression, const Gecode::LinExpr& rightExpression, const string& value) {
+	if (value == "==")
+		return LinRel(leftExpression == rightExpression);
+	else if (value == "!=")
+		return LinRel(leftExpression != rightExpression);
+	else if (value == ">")
+		return LinRel(leftExpression > rightExpression);
+	else if (value == "<")
+		return LinRel(leftExpression < rightExpression);
+	else if (value == ">=")
+		return LinRel(leftExpression >= rightExpression);
+	else if (value == "<=")
+		return LinRel(leftExpression <= rightExpression);
+	else
+		throw dlvhex::PluginError("Unknown operator: " + value);
+}
+
 void GecodeSolver::propagate(string expression) {
 	// If the expression is not specified, ignore it
 	// This could be the case for learning
-	if (expression == "") return;
+	if (expression == "")
+		return;
 
 	ParseTree* tree;
 	_simpleParser->makeTree(expression, &tree);
 
-	LinExpr leftExpression = makeExpression(tree->left);
-	LinExpr rightExpression = makeExpression(tree->right);
+	const LinExpr& leftExpression = makeExpression(tree->left);
+	const LinExpr& rightExpression = makeExpression(tree->right);
 
-	if (tree->value == "==")
-		rel(*this, leftExpression == rightExpression);
-	else if (tree->value == "!=")
-		rel(*this, leftExpression != rightExpression);
-	else if (tree->value == ">")
-		rel(*this, leftExpression > rightExpression);
-	else if (tree->value == "<")
-		rel(*this, leftExpression < rightExpression);
-	else if (tree->value == ">=")
-		rel(*this, leftExpression >= rightExpression);
-	else if (tree->value == "<=")
-		rel(*this, leftExpression <= rightExpression);
+	const LinRel& mainRelation = makeMainRelation(leftExpression, rightExpression, tree->value);
+
+	rel(*this, mainRelation);
 
 	_simpleParser->deleteTree(tree);
 }
 
 Gecode::LinExpr GecodeSolver::makeExpression(ParseTree* tree) {
 	if (tree->type == OPERATOR) {
-		LinExpr leftVariable = makeExpression(tree->left);
-		LinExpr rightVariable = makeExpression(tree->right);
+		LinExpr leftExpression = makeExpression(tree->left);
+		LinExpr rightExpression = makeExpression(tree->right);
 
 		string op = tree->value;
 
-		if (op == "+") return leftVariable + rightVariable;
-		else if (op == "-") return leftVariable - rightVariable;
-		else if (op == "*") return leftVariable * rightVariable;
-		else if (op == "/") return leftVariable / rightVariable;
-		else throw "Invalid operator";
-	}
-	else if(tree->type == NUMBER) {
+		if (op == "+")
+			return leftExpression + rightExpression;
+		else if (op == "-")
+			return leftExpression - rightExpression;
+		else if (op == "*")
+			return leftExpression * rightExpression;
+		else if (op == "/")
+			return leftExpression / rightExpression;
+		else
+			throw "Invalid operator";
+	} else if (tree->type == NUMBER) {
 		int value = atoi(tree->value.c_str());
 
-		Gecode::IntVar var(*this, value, value);
-		return var;
-	}
-	else if(tree->type == CONSTRAINT_VARIABLE) {
+//		Gecode::IntVar res(*this, value, value);
+//		return res;
+
+		return expr(*this, value);
+	} else if (tree->type == CONSTRAINT_VARIABLE) {
 		string variableName = tree->value;
 
 		if (boost::starts_with(variableName, "sum_")) {
-			string aggregatedPredicate = variableName.substr(4);
+			int index1 = variableName.find('_', 0);
+			int index2 = variableName.find('_', index1 + 1);
+			string predicate = variableName.substr(index1 + 1, index2 - index1 - 1);
+			int position = atoi(variableName.substr(index2 + 1, variableName.length() - index2).c_str());
 
-			LinExpr result = expr(*this, 1==1);
-			ParseTree* sumTree;
+			LinExpr result = expr(*this, 0);
 			for (int i = 0; i < _sumData.size(); i++) {
 				string s = _sumData[i];
-				_simpleParser->makeTree(s, &sumTree);
 
-				result = result + makeExpression(sumTree);
-				_simpleParser->deleteTree(sumTree);
+				boost::char_separator<char> sep(",() ", "", boost::drop_empty_tokens);
+
+				boost::tokenizer<boost::char_separator<char> > tokens(s, sep);
+
+				int ind = 0;
+				for (boost::tokenizer<boost::char_separator<char> >::iterator it = tokens.begin(); it != tokens.end(); ++it) {
+					string token = *it;
+
+					if (ind == 0 && token != predicate)
+						break;
+					else if (ind == position) {
+						result = result + expr(*this, atoi(token.c_str()));
+						break;
+					}
+					ind++;
+				}
 			}
 			return result;
-		}
-		else {
-			map<string,Gecode::IntVar>::iterator it = _constraintVariables.find(variableName);
+		} else {
+			map<string, Gecode::IntVar>::iterator it = _constraintVariables.find(variableName);
 			if (it == _constraintVariables.end()) { // create fresh variable
 				Gecode::IntVar var(*this, _minValue, _maxValue);
 				_constraintVariables[variableName] = var;
+				branch(*this, var, INT_VAL_RANGE_MIN);
 				return var;
-			}
-			else { // reuse old variable
+			} else { // reuse old variable
 				return it->second;
 			}
 		}
-	}
-	else throw "Unknown node type";
+	} else
+		throw "Unknown node type";
 }

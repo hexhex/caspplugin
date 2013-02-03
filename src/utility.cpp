@@ -58,7 +58,7 @@ string replaceInvertibleOperator(string expr) {
 
 bool isSeparator(string s) {
 //	return s == "," || s == "v" || s == "." || s == ":" || s == "-" || s == "not" || s == "!";
-	return s == "," || s == "v" || s == "." || s == ":" || s == "not" || s == "!";
+	return s == "," || s == "v" || s == "." || s == ":" || s == "not";
 }
 
 string getValueInsideBrackets(string s) {
