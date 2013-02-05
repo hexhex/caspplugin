@@ -92,24 +92,33 @@ void CaspConverter::convert(istream& i, ostream& o) {
 
 						if (isSeparator(expressions[i]) && bracketsCount == 0) {
 							startIndex = i;
-							if (expressions[i] == ":")
-								startIndex++;
+							if (expressions[i] == ":" && expressions[i+1]=="-")
+								startIndex+=2;
 							break;
 						}
 					}
 
-					for (int i = 0; i <= startIndex; i++) {
+					for (int i = 0; i < startIndex; i++) {
 						o << expressions[i];
 					}
+
 					for (int i = startIndex + 1; i < expressions.size(); i++) {
-						if (isVariable(expressions[i]))
+						if (isVariable(expressions[i])) {
 							variables.push_back(expressions[i]);
-						if (starts_with(expressions[i], "sum")) {
-							// transform sum(p) to sum_p for proper parsing
-							sumPredicates.push_back(getValueInsideBrackets(expressions[i]));
-							expressions[i] = "sum_" + getValueInsideBrackets(expressions[i]);
+							caspExpression += expressions[i];
 						}
-						caspExpression += expressions[i];
+						else if (starts_with(expressions[i], "sum")) {
+							// transform sum(p,2) to sum_p_2 for proper parsing
+							i += 2;
+							string predicate = expressions[i];
+							i += 2;
+							string position = expressions[i];
+							i += 1;
+							sumPredicates.push_back(predicate);
+
+							caspExpression += "sum_" + predicate + "_" + position;
+						}
+						else caspExpression += expressions[i];
 					}
 					expressions.clear();
 
@@ -170,6 +179,7 @@ void CaspConverter::convert(istream& i, ostream& o) {
 		for (int i = 0; i < expressions.size(); i++) {
 			o << expressions[i];
 		}
+		o << endl;
 
 		expressions.clear();
 	}
