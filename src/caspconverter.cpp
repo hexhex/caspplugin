@@ -91,7 +91,7 @@ void CaspConverter::convert(istream& i, ostream& o) {
 							bracketsCount--;
 
 						if (isSeparator(expressions[i]) && bracketsCount == 0) {
-							startIndex = i;
+							startIndex = i+1;
 							if (expressions[i] == ":" && expressions[i+1]=="-")
 								startIndex+=2;
 							break;
@@ -143,7 +143,7 @@ void CaspConverter::convert(istream& i, ostream& o) {
 							boost::replace_all(caspExpression, "(", "{");
 							boost::replace_all(caspExpression, ")", "}");
 							boost::replace_all(caspExpression, ",", ";");
-
+							
 							o << "expr" << variables.size() << "(\"" << caspExpression << "\"";
 							for (int i = 0; i < variables.size(); i++) {
 								o << "," << variables[i];
