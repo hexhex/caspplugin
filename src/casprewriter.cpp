@@ -57,7 +57,7 @@ void CaspRewriter::rewriteRule(ProgramCtx& ctx, vector<ID>& idb, ID ruleID) {
 
 		BOOST_FOREACH (ID caspId, caspIds) {
 			Rule newRule = Rule(rule);
-			newRule.kind = ID::MAINKIND_RULE | ID::SUBKIND_RULE_REGULAR;
+			newRule.kind = ID::MAINKIND_RULE | ID::SUBKIND_RULE_REGULAR | ID::PROPERTY_RULE_DISJ;
 
 			newRule.body = bodyWithoutCasp;
 
