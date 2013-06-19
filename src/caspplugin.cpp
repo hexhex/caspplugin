@@ -67,6 +67,7 @@ namespace dlvhex {
 			retrieve(const Query& query, Answer& answer, NogoodContainerPtr nogoods) throw (PluginError)
 			{
 				Registry &registry = *getRegistry();
+				registry.print(cout);
 
 				std::vector<std::string> expressions;
 				std::vector<std::string> sumData;
@@ -223,6 +224,7 @@ namespace dlvhex {
 			 */
 			virtual void printUsage(std::ostream& o) const {
 				o << "     --cspenable - enabling casp plugin" << endl;
+				o << "     --headguess - enabling guessing in constraint heads" << endl;
 				o << "     --csplearning=[none,deletion,forward,backward,cc,wcc] " << endl;
 				o << "                   Enable csp learning(none by default)." << endl;
 				o << "                   none        - No learning." << endl;
@@ -249,8 +251,15 @@ namespace dlvhex {
 
 					if (option.find("--cspenable") != std::string::npos) {
 						boost::shared_ptr<PluginConverter> converter(new CaspConverter());
-						boost::shared_ptr<PluginRewriter> rewriter(new CaspRewriter());
+						boost::shared_ptr<PluginRewriter> rewriter(new CaspRewriter(false));
 						_converter = converter;
+						_rewriter = rewriter;
+
+						it = pluginOptions.erase(it);
+					}
+					
+					else if (option.find("--headguess") != std::string::npos) {
+						boost::shared_ptr<PluginRewriter> rewriter(new CaspRewriter(true));
 						_rewriter = rewriter;
 
 						it = pluginOptions.erase(it);

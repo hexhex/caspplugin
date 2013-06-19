@@ -20,8 +20,8 @@ DefaultRewriter::~DefaultRewriter() {
 void DefaultRewriter::rewrite(ProgramCtx& ctx) {
 }
 
-CaspRewriter::CaspRewriter() {
-
+CaspRewriter::CaspRewriter(bool addGuessToHead=false) {
+	_addGuessToHead = addGuessToHead;
 }
 
 CaspRewriter::~CaspRewriter() {
@@ -42,9 +42,35 @@ void CaspRewriter::rewriteRule(ProgramCtx& ctx, vector<ID>& idb, ID ruleID) {
 		}
 	}
 
+	if (_addGuessToHead) {
+		BOOST_FOREACH(ID atomId, rule.head) {
+			if (!(atomId.isExternalAtom()) && !(atomId.isBuiltinAtom())) {
+				const OrdinaryAtom& atom = reg->lookupOrdinaryAtom(atomId);
+				if (boost::starts_with(atom.text, "expr")) {
+					needRewrite = true;
+					break;
+				}
+			}
+		}
+	}
+
+
 	if (needRewrite) {
 		vector<ID> bodyWithoutCasp;
 		vector<ID> caspIds;
+
+		if (_addGuessToHead) {
+			BOOST_FOREACH (ID headAtomId, rule.head) {
+				if (headAtomId.isOrdinaryAtom()) {
+					const OrdinaryAtom& atom = reg->lookupOrdinaryAtom(headAtomId);
+
+					if (boost::starts_with(atom.text, "expr")) {
+						caspIds.push_back(ID(headAtomId));
+					}
+				}
+			}
+		}
+
 
 		BOOST_FOREACH (ID bodyAtomId, rule.body) {
 			if (bodyAtomId.isOrdinaryAtom()) {
@@ -64,13 +90,19 @@ void CaspRewriter::rewriteRule(ProgramCtx& ctx, vector<ID>& idb, ID ruleID) {
 		}
 
 		BOOST_FOREACH (ID caspId, caspIds) {
+			cout << "#" << caspId << endl;
 			Rule newRule = Rule(rule);
 			newRule.kind = ID::MAINKIND_RULE | ID::SUBKIND_RULE_REGULAR | ID::PROPERTY_RULE_DISJ;
 
 			newRule.body = bodyWithoutCasp;
 
 			newRule.head.clear();
-			newRule.head.push_back(ID::posLiteralFromAtom(ID::atomFromLiteral(caspId)));
+			if (caspId.isLiteral()) {
+				newRule.head.push_back(ID::posLiteralFromAtom(ID::atomFromLiteral(caspId)));
+			}
+			else {
+				newRule.head.push_back(ID::posLiteralFromAtom(caspId));
+			}	
 
 			OrdinaryAtom auxCaspAtom = reg->lookupOrdinaryAtom(caspId);
 			Term t = reg->terms.getByID(auxCaspAtom.tuple[0]);

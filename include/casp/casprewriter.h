@@ -15,11 +15,12 @@ public:
 
 class CaspRewriter : public dlvhex::PluginRewriter {
 public:
-	CaspRewriter();
+	CaspRewriter(bool addGuessToHead);
 	virtual ~CaspRewriter();
 
 	virtual void rewrite(dlvhex::ProgramCtx& ctx);
 private:
+	bool _addGuessToHead;
 	std::vector<dlvhex::ID> newIdb;
 
 	void rewriteRule(dlvhex::ProgramCtx& ctx, std::vector<dlvhex::ID>& idb, dlvhex::ID ruleID);
