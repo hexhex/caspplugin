@@ -184,16 +184,16 @@ namespace dlvhex {
 	class CASPPlugin : public PluginInterface
     {
 		private:
-			boost::shared_ptr<CaspConverter> _converter;
-			boost::shared_ptr<CaspRewriter> _rewriter;
+			boost::shared_ptr<PluginConverter> _converter;
+			boost::shared_ptr<PluginRewriter> _rewriter;
 			boost::shared_ptr<SimpleParser> _simpleParser;
 			boost::shared_ptr<LearningProcessor> _learningProcessor;
 
 		public:
       
     		CASPPlugin() :
-    			_converter(new CaspConverter()),
-    			_rewriter(new CaspRewriter()),
+    			_converter(new DefaultConverter()),
+    			_rewriter(new DefaultRewriter()),
     			_simpleParser(new SimpleParser()),
     			_learningProcessor(new NoLearningProcessor(_simpleParser))
 			{
@@ -222,6 +222,7 @@ namespace dlvhex {
 			 * @brief prints possible command line options
 			 */
 			virtual void printUsage(std::ostream& o) const {
+				o << "     --cspenable - enabling casp plugin" << endl;
 				o << "     --csplearning=[none,deletion,forward,backward,cc,wcc] " << endl;
 				o << "                   Enable csp learning(none by default)." << endl;
 				o << "                   none        - No learning." << endl;
@@ -246,7 +247,16 @@ namespace dlvhex {
 				while (it != pluginOptions.end()) {
 					std::string option(*it);
 
-					if (option.find("--csplearning=") != std::string::npos) {
+					if (option.find("--cspenable") != std::string::npos) {
+						boost::shared_ptr<PluginConverter> converter(new CaspConverter());
+						boost::shared_ptr<PluginRewriter> rewriter(new CaspRewriter());
+						_converter = converter;
+						_rewriter = rewriter;
+
+						it = pluginOptions.erase(it);
+					}
+
+					else if (option.find("--csplearning=") != std::string::npos) {
 						string processorName = option.substr(std::string("--csplearning=").length());
 						if (processorName == "none") {
 							_learningProcessor = boost::shared_ptr<LearningProcessor>(new NoLearningProcessor(_simpleParser));

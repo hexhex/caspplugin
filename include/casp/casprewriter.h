@@ -4,6 +4,15 @@
 #include "dlvhex2/PluginInterface.h"
 #include <vector>
 
+class DefaultRewriter : public dlvhex::PluginRewriter {
+public:
+	DefaultRewriter();
+	virtual ~DefaultRewriter();
+
+	virtual void rewrite(dlvhex::ProgramCtx& ctx);
+};
+
+
 class CaspRewriter : public dlvhex::PluginRewriter {
 public:
 	CaspRewriter();

@@ -11,6 +11,19 @@
 using namespace std;
 using namespace boost;
 
+DefaultConverter::DefaultConverter() {
+}
+
+DefaultConverter::~DefaultConverter() {
+}
+
+void DefaultConverter::convert(istream& i, ostream& o) {
+	string input;
+	while (getline(i, input)) {
+		o << input << endl;
+	}
+}
+
 CaspConverter::CaspConverter() {
 
 }

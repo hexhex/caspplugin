@@ -11,12 +11,20 @@
 using namespace std;
 using namespace dlvhex;
 
+DefaultRewriter::DefaultRewriter() {
+}
+
+DefaultRewriter::~DefaultRewriter() {
+}
+
+void DefaultRewriter::rewrite(ProgramCtx& ctx) {
+}
+
 CaspRewriter::CaspRewriter() {
 
 }
 
 CaspRewriter::~CaspRewriter() {
-
 }
 
 void CaspRewriter::rewriteRule(ProgramCtx& ctx, vector<ID>& idb, ID ruleID) {
