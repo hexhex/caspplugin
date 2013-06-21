@@ -67,7 +67,6 @@ namespace dlvhex {
 			retrieve(const Query& query, Answer& answer, NogoodContainerPtr nogoods) throw (PluginError)
 			{
 				Registry &registry = *getRegistry();
-				registry.print(cout);
 
 				std::vector<std::string> expressions;
 				std::vector<std::string> sumData;
