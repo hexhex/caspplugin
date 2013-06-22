@@ -1,16 +1,27 @@
 
-$dom(0..12).
-task(1,1).
-task(2,1).
+$domain(0..16).
+task(1,0).
+task(2,4).
 task(3,2).
-task(4,2).
+task(4,1).
+task(5,2).
+task(6,3).
+task(7,2).
+task(8,2).
+task(9,4).
+task(10,3).
 
 worker(1,0).
-worker(2,1).
-worker(3,3).
-worker(4,4).
-worker(5,3).
+worker(2,3).
+worker(3,1).
+worker(4,3).
+worker(5,4).
 worker(6,3).
+worker(7,1).
+worker(8,0).
+worker(9,3).
+worker(10,3).
+worker(11,4).
 
 task_assigned(X,Y) :- not task_unassigned(X,Y), task(X, Z), worker(Y,T). 
 task_unassigned(X,Y) :- not task_assigned(X,Y), task(X, Z), worker(Y,T). 

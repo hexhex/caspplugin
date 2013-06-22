@@ -4,7 +4,9 @@
 
 using namespace std;
 
-const int TEST_NUMBER = 10;
+const int TEST_NUMBER = 20;
+
+#define max(a,b) a>b?a:b
 
 int main() {	
 	for (int i = 0; i < TEST_NUMBER; i++) {
@@ -12,17 +14,17 @@ int main() {
 		sprintf(filename,"%d%s",i+1, ".hex");
 		freopen(filename, "w", stdout);
 
-		cout << endl << "$dom(0.." << (i+10) << ")." << endl;
+		int task_number = 2 + i*i*i, worker_number = 2 + i*i*i + ((rand() + 1 ) % (1+i*i));
 
-		int task_number = 2 + i, worker_number = 2 + i + ((rand() + 1 ) % 3);
+		cout << endl << "$domain(0.." << (max(task_number, worker_number) + 5) << ")." << endl;
 
 		for (int j = 0; j < task_number; j++) {
-			cout << "task(" << j + 1 << "," << (rand() + 1) % 3 << ")." << endl;
+			cout << "task(" << j + 1 << "," << (rand() + 1) % (1+i*i) << ")." << endl;
 		}
 		cout << endl;
 
 		for (int j = 0; j < worker_number; j++) {
-			cout << "worker(" << j + 1 << "," << (rand() + 1) % (j+3) << ")." << endl;
+			cout << "worker(" << j + 1 << "," << (rand() + 1) % (1+i*i) << ")." << endl;
 		}
 		cout << endl;
 
