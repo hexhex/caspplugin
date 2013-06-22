@@ -13,7 +13,7 @@ int main() {
 		sprintf(filename,"%d%s",i+1, ".hex");
 		freopen(filename, "w", stdout);
 
-		cout << "$dom(0.." << (i+5) << ")." << endl;
+		cout << endl << "$dom(0.." << (i+5) << ")." << endl;
 
 		int task_number = 2 + i - TEST_SHIFT + ((rand() + 1 ) % 3), worker_number = 2 + i - TEST_SHIFT;
 
