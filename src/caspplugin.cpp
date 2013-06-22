@@ -161,7 +161,6 @@ namespace dlvhex {
 
 				// If there's at least one solution, then data is consistent
 				if (solutions.next()) {
-//					solver->print(cout);
 					Tuple out;
 					answer.get().push_back(out);
 				}

@@ -7,7 +7,7 @@ export LD_LIBRARY_PATH=$2
 instance=$3
 to=$4
 
-confstr="--cspenable"
+confstr="dlvhex2 --cspenable; dlvhex2 --cspenable --headguess"
 
 # split configurations
 IFS=';' read -ra confs <<< "$confstr"
@@ -38,7 +38,7 @@ i=0
 for c in "${confs[@]}"
 do
 	echo -ne -e " "
-	$(timeout $to time -o $instance.time.dat -f %e dlvhex2 $c --plugindir=../../../local/lib simple.hex 2>/dev/null >/dev/null)
+	$(timeout $to time -o $instance.time.dat -f %e $c --plugindir=../../../local/lib simple.hex 2>/dev/null >debug.log)
 	ret=$?
 	output=$(cat $instance.time.dat)
 	if [[ $ret == 124 ]]; then
