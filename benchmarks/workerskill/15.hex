@@ -1,0 +1,28 @@
+$dom(0..19).
+task(1,2).
+task(2,2).
+task(3,1).
+task(4,1).
+task(5,1).
+task(6,0).
+task(7,0).
+task(8,2).
+
+worker(1,0).
+worker(2,1).
+worker(3,1).
+worker(4,1).
+worker(5,4).
+worker(6,7).
+
+task_assigned(X,Y) :- not task_unassigned(X,Y), task(X, Z), worker(Y,T). 
+task_unassigned(X,Y) :- not task_assigned(X,Y), task(X, Z), worker(Y,T). 
+
+task_assigned_any(X) :- task_assigned(X,Y).
+
+:- not task_assigned_any(X), task(X, Y). 
+
+:- task_assigned(X,Y1), task_assigned(X,Y2), Y1 != Y2.
+:- task_assigned(X1,Y), task_assigned(X2,Y), X1 != X2.
+
+T $>= Z :- task_assigned(X,Y), task(X, Z), worker(Y,T). 

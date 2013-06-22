@@ -1,0 +1,35 @@
+task(1,1).
+task(2,2).
+task(3,1).
+task(4,2).
+task(5,0).
+task(6,1).
+task(7,1).
+task(8,0).
+task(9,2).
+task(10,0).
+task(11,0).
+
+worker(1,0).
+worker(2,1).
+worker(3,2).
+worker(4,3).
+worker(5,5).
+worker(6,0).
+worker(7,3).
+worker(8,1).
+worker(9,6).
+worker(10,5).
+worker(11,6).
+
+task_assigned(X,Y) :- not task_unassigned(X,Y), task(X, Z), worker(Y,T). 
+task_unassigned(X,Y) :- not task_assigned(X,Y), task(X, Z), worker(Y,T). 
+
+task_assigned_any(X) :- task_assigned(X,Y).
+
+:- not task_assigned_any(X), task(X, Y). 
+
+:- task_assigned(X,Y1), task_assigned(X,Y2), Y1 != Y2.
+:- task_assigned(X1,Y), task_assigned(X2,Y), X1 != X2.
+
+T $>= Z :- task_assigned(X,Y), task(X, Z), worker(Y,T). 
