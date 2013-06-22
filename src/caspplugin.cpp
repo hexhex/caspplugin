@@ -95,7 +95,7 @@ namespace dlvhex {
 						Term value = registry.terms.getByID(atom.tuple[1]);
 						expr = replaceInvertibleOperator(value.symbol);
 					}
-					else if (name.symbol == "dom") {
+					else if (name.symbol == "domain") {
 						domain = removeQuotes(registry.terms.getByID(atom.tuple[1]).symbol);
 					}
 					else if (name.symbol == "maximize" || name.symbol == "minimize") {
@@ -155,13 +155,10 @@ namespace dlvhex {
 				solver->propagate(expressions);
 
 				Gecode::Search::Options opt;
-//				opt.c_d = 0;
-//				opt.a_d = 1000000;
 				Gecode::BAB<GecodeSolver> solutions(solver,opt);
 
 				// If there's at least one solution, then data is consistent
 				if (solutions.next()) {
-//					solver->print(cout);
 					Tuple out;
 					answer.get().push_back(out);
 				}

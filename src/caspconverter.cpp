@@ -41,7 +41,7 @@ void CaspConverter::convert(istream& i, ostream& o) {
 
 	string input;
 
-	string specialDirectives[3] = { "dom", "maximize", "minimize" };
+	string specialDirectives[3] = { "domain", "maximize", "minimize" };
 
 	while (getline(i, input)) {
 		bool stop = false;
@@ -199,7 +199,7 @@ void CaspConverter::convert(istream& i, ostream& o) {
 
 	int maxSumPredicates = 15;
 
-	o << ":- not &casp[dom,maximize,minimize";
+	o << ":- not &casp[domain,maximize,minimize";
 	for (int i = 0; i < 11; i++) {
 		o << ",expr" << i << ",not_expr" << i;
 	}
