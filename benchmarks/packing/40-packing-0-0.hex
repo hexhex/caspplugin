@@ -2,19 +2,22 @@
 
 $domain(0..10000).
 
-posx(X) :- square(X,S), area(W,H), X $<= W-S .
-posy(X) :- square(X,S), area(W,H), X $<= H-S.
+posx(X) $<= W-S :- square(X,S), area(W,H).
+posy(X) $<= H-S :- square(X,S), area(W,H).
 
-intersectx(X1,X2) :- square(X1,S1), square(X2,S2), posx(X1), posx(X2), X1 $<= X2,     X1$+S1$>X2, X1 != X2.
-intersectx(X1,X2) :- square(X1,S1), square(X2,S2), posx(X1), posx(X2), X1 $< X2$+S2,  X1$+S1$>X2$+S2, X1 != X2.
+%very simple approach, checking edges
 
-intersecty(X1,X2) :- square(X1,S1), square(X2,S2), posy(X1), posy(X2), X1 $<= X2,     X1$+S1$>X2,     X1 != X2.
-intersecty(X1,X2) :- square(X1,S1), square(X2,S2), posy(X1), posy(X2), X1 $<  X2$+S2, X1$+S1$>X2$+S2, X1 != X2.
+intersectx(X1,X2) :- square(X1,S1), square(X2,S2), posx(X1) $<= posx(X2),    posx(X1)$+S1$>posx(X2), X1 != X2.
+intersectx(X1,X2) :- square(X1,S1), square(X2,S2), posx(X1) $<  posx(X2)$+S2, posx(X1)$+S1$>posx(X2)$+S2, X1 != X2.
+
+
+intersecty(X1,X2) :- square(X1,S1), square(X2,S2), posy(X1) $<= posy(X2),     posy(X1)$+S1$>posy(X2),     X1 != X2.
+intersecty(X1,X2) :- square(X1,S1), square(X2,S2), posy(X1) $<  posy(X2)$+S2, posy(X1)$+S1$>posy(X2)$+S2, X1 != X2.
 
 intersectx(X1,X2) :- intersectx(X2,X1), square(X1,S1), square(X2,S2).
 intersecty(X1,X2) :- intersecty(X2,X1), square(X1,S1), square(X2,S2).
 :- intersectx(X1,X2), intersecty(X1,X2).
-
+%:- square(X1,S1), square(X2,S2), X1 != X2, posx(X1) $<= posx(X2), posx(X1)+S1 $> posx(X2), posy(X1) $<= posy(X2), posy(X1)+S1 $> posy(X2).
 area(300,200).
 max_square_num(24).
 square(1,37).
