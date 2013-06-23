@@ -8,16 +8,16 @@ instance=$3
 to=$4
 
 # get all possible answers
-confstr="--quiet clingcon --csp-opt-all --opt-all --csp-num-as=0 --number=0; \
---quiet clingcon --csp-opt-all --opt-all --csp-num-as=0 --number=0 --csp-reduce-conflict=forward; \
---quiet clingcon --csp-opt-all --opt-all --csp-num-as=0 --number=0 --csp-reduce-conflict=backward; \
---quiet clingcon --csp-opt-all --opt-all --csp-num-as=0 --number=0 --csp-reduce-conflict=cc; \
---quiet dlvhex2 --cspenable --plugindir=../../../local/lib --silent ; \
---quiet dlvhex2 --cspenable --plugindir=../../../local/lib --silent --heuristics=monolithic --extlearn --csplearning=deletion; \
---quiet dlvhex2 --cspenable --plugindir=../../../local/lib --silent --heuristics=monolithic --extlearn --csplearning=forward; \
---quiet dlvhex2 --cspenable --plugindir=../../../local/lib --silent --heuristics=monolithic --extlearn --csplearning=backward; \
---quiet dlvhex2 --cspenable --plugindir=../../../local/lib --silent --heuristics=monolithic --extlearn --csplearning=cc; \
---quiet dlvhex2 --cspenable --plugindir=../../../local/lib --silent --heuristics=monolithic --extlearn --csplearning=wcc;"
+confstr="--quiet clingcon --csp-opt-all --opt-all --csp-num-as=1 --number=1; \
+--quiet clingcon --csp-opt-all --opt-all --csp-num-as=1 --number=1 --csp-reduce-conflict=forward; \
+--quiet clingcon --csp-opt-all --opt-all --csp-num-as=1 --number=1 --csp-reduce-conflict=backward; \
+--quiet clingcon --csp-opt-all --opt-all --csp-num-as=1 --number=1 --csp-reduce-conflict=cc; \
+--quiet dlvhex2 --cspenable --plugindir=../../../local/lib --silent --number=1; \
+--quiet dlvhex2 --cspenable --plugindir=../../../local/lib --silent --number=1 --heuristics=monolithic --extlearn --csplearning=deletion; \
+--quiet dlvhex2 --cspenable --plugindir=../../../local/lib --silent --number=1 --heuristics=monolithic --extlearn --csplearning=forward; \
+--quiet dlvhex2 --cspenable --plugindir=../../../local/lib --silent --number=1 --heuristics=monolithic --extlearn --csplearning=backward; \
+--quiet dlvhex2 --cspenable --plugindir=../../../local/lib --silent --number=1 --heuristics=monolithic --extlearn --csplearning=cc; \
+--quiet dlvhex2 --cspenable --plugindir=../../../local/lib --silent --number=1 --heuristics=monolithic --extlearn --csplearning=wcc;"
 
 # split configurations
 IFS=';' read -ra confs <<< "$confstr"
