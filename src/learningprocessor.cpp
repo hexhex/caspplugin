@@ -55,7 +55,12 @@ void ForwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<s
 	vector<ID> iis;
 
 	while (true) {
-		GecodeSolver *innerSolver = static_cast<GecodeSolver*>(otherSolver->clone());
+		GecodeSolver *innerSolver = static_cast<GecodeSolver*>(solver->clone());
+		for (int i = 0; i < expressions.size(); i++) {
+			if (processedFlags[i]) {
+				innerSolver->propagate(expressions[i]);
+			}
+		}
 
 		int propagateIndex = -1;
 		for (int i = 0; i < expressions.size(); i++) {
@@ -109,8 +114,13 @@ void JumpForwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vect
 	vector<ID> iis;
 
 	while (true) {
-		GecodeSolver *innerSolver = static_cast<GecodeSolver*>(otherSolver->clone());
 
+		GecodeSolver *innerSolver = static_cast<GecodeSolver*>(solver->clone());
+		for (int i = 0; i < expressions.size(); i++) {
+			if (processedFlags[i]) {
+				innerSolver->propagate(expressions[i]);
+			}
+		}
 		int propagateIndex = -1;
 		for (int i = 0; i < expressions.size(); i++) {
 			if (processedFlags[i])
@@ -165,7 +175,13 @@ void BackwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<
 	vector<ID> iis;
 
 	while (true) {
-		GecodeSolver *innerSolver = static_cast<GecodeSolver*>(otherSolver->clone());
+		GecodeSolver *innerSolver = static_cast<GecodeSolver*>(solver->clone());
+
+		for (int i = 0; i < expressions.size(); i++) {
+			if (processedFlags[i]) {
+				innerSolver->propagate(expressions[i]);
+			}
+		}
 
 		int propagateIndex = -1;
 		for (int i = 0; i < expressions.size(); i++) {
@@ -262,7 +278,12 @@ void CCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string
 	set<string> currentVariables;
 
 	while (true) {
-		GecodeSolver *innerSolver = static_cast<GecodeSolver*>(otherSolver->clone());
+		GecodeSolver *innerSolver = static_cast<GecodeSolver*>(solver->clone());
+		for (int i = 0; i < expressions.size(); i++) {
+			if (processedFlags[i]) {
+				innerSolver->propagate(expressions[i]);
+			}
+		}
 
 		int propagateIndex = -1;
 
@@ -341,7 +362,13 @@ void WeightedCCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vecto
 	set<string> currentVariables;
 
 	while (true) {
-		GecodeSolver *innerSolver = static_cast<GecodeSolver*>(otherSolver->clone());
+
+		GecodeSolver *innerSolver = static_cast<GecodeSolver*>(solver->clone());
+		for (int i = 0; i < expressions.size(); i++) {
+			if (processedFlags[i]) {
+				innerSolver->propagate(expressions[i]);
+			}
+		}
 
 		int propagateIndex = -1;
 
