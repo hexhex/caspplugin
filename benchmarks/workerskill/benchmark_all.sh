@@ -1,7 +1,7 @@
 # $1: timeout
 
 if [ $# -le 0 ]; then
-	to=300
+	to=600
 else
 	to=$1
 fi

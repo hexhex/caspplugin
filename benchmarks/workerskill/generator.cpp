@@ -10,23 +10,27 @@ const int TEST_NUMBER = 20;
 
 int main() {	
 	for (int i = 0; i < TEST_NUMBER; i++) {
-		char filename[5 + ((i+1)/10)];
-		sprintf(filename,"%d%s",i+1, ".hex");
+		char filename[11];
+	
+		sprintf(filename,"%d%s",i + 1, ".hex");
 		freopen(filename, "w", stdout);
 
-		int task_number = 2 + i*i*i, worker_number = 2 + i*i*i + ((rand() + 1 ) % (1+i*i));
+		int task_number = 2 + i + (rand() % (1 + i/2)), worker_number = task_number + (rand() % (1+i/2));
+		int maxdomain  = 0;
 
-		cout << endl << "$domain(0.." << (max(task_number, worker_number) + 5) << ")." << endl;
-
+		cout << endl;		
 		for (int j = 0; j < task_number; j++) {
-			cout << "task(" << j + 1 << "," << (rand() + 1) % (1+i*i) << ")." << endl;
+			cout << "task(" << j + 1 << "," << (rand() + 1) % (1+100*i) << ")." << endl;
 		}
 		cout << endl;
 
 		for (int j = 0; j < worker_number; j++) {
-			cout << "worker(" << j + 1 << "," << (rand() + 1) % (1+i*i) << ")." << endl;
+			int skill = (rand() % (1+400*i));
+			cout << "worker(" << j + 1 << "," << skill << ")." << endl;
+			if (skill > maxdomain) maxdomain = skill;
 		}
-		cout << endl;
+
+		cout << endl << "$domain(0.." << maxdomain+10 << ")." << endl;
 
 		cout << "task_assigned(X,Y) :- not task_unassigned(X,Y), task(X, Z), worker(Y,T). " << endl;
 		cout << "task_unassigned(X,Y) :- not task_assigned(X,Y), task(X, Z), worker(Y,T). " << endl << endl;
