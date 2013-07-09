@@ -1,0 +1,53 @@
+<?xml version="1.0"?>
+
+<rdf:RDF
+xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+xmlns:cd="http://www.recshop.fake/cd#">
+
+<rdf:Description rdf:about="a">
+    <element:equality>b</element:equality>
+    <element:equality>c</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="b">
+    <element:sum>b1</element:sum>
+    <element:sum>b2</element:sum>
+</rdf:Description>
+
+<rdf:Description rdf:about="b">
+    <element:sum>b1</element:sum>
+    <element:sum>b2</element:sum>
+</rdf:Description>
+
+<rdf:Description rdf:about="b1">
+    <element:sum>b11</element:sum>
+    <element:sum>b12</element:sum>
+</rdf:Description>
+
+<rdf:Description rdf:about="b11">
+    <element:sum>b111</element:sum>
+    <element:sum>5</element:sum>
+</rdf:Description>
+
+<rdf:Description rdf:about="b111">
+    <element:sum>b1111</element:sum>
+    <element:sum>b1112</element:sum>
+</rdf:Description>
+
+<rdf:Description rdf:about="b2">
+    <element:sum>b21</element:sum>
+    <element:sum>b22</element:sum>
+</rdf:Description>
+
+<rdf:Description rdf:about="b21">
+    <element:sum>5</element:sum>
+    <element:sum>6</element:sum>
+</rdf:Description>
+
+<rdf:Description rdf:about="b22">
+    <element:sum>0</element:sum>
+    <element:sum>1</element:sum>
+</rdf:Description>
+
+</rdf:RDF>
+

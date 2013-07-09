@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+
+<rdf:RDF
+xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+xmlns:cd="http://www.recshop.fake/cd#">
+
+<rdf:Description rdf:about="Z">
+    <element:equality>X</element:equality>
+    <element:equality>T</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="X">
+    <element:difference>15</element:difference>
+    <element:difference>Y</element:difference>
+</rdf:Description>
+
+<rdf:Description rdf:about="Y">
+    <element:sum>5</element:sum>
+    <element:sum>a</element:sum>
+</rdf:Description>
+
+<rdf:Description rdf:about="T">
+    <element:difference>10</element:difference>
+    <element:difference>a</element:difference>
+</rdf:Description>
+
+</rdf:RDF>

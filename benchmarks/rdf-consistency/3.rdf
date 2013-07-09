@@ -1,0 +1,118 @@
+<?xml version="1.0"?>
+
+<rdf:RDF
+xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+xmlns:cd="http://www.recshop.fake/cd#">
+
+<rdf:Description rdf:about="a">
+    <element:equality>0</element:equality>
+    <element:equality>0</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="b">
+    <element:equality>0</element:equality>
+    <element:equality>0</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="c">
+    <element:equality>0</element:equality>
+    <element:equality>0</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="d">
+    <element:equality>0</element:equality>
+    <element:equality>0</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="e">
+    <element:equality>0</element:equality>
+    <element:equality>0</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="f">
+    <element:equality>0</element:equality>
+    <element:equality>0</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="g">
+    <element:equality>0</element:equality>
+    <element:equality>0</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="h">
+    <element:equality>0</element:equality>
+    <element:equality>0</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="i">
+    <element:equality>0</element:equality>
+    <element:equality>0</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="j">
+    <element:equality>0</element:equality>
+    <element:equality>0</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="k">
+    <element:equality>0</element:equality>
+    <element:equality>0</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="l">
+    <element:equality>0</element:equality>
+    <element:equality>0</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="m">
+    <element:equality>0</element:equality>
+    <element:equality>0</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="n">
+    <element:equality>0</element:equality>
+    <element:equality>0</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="o">
+    <element:equality>0</element:equality>
+    <element:equality>0</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="p">
+    <element:equality>0</element:equality>
+    <element:equality>0</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="q">
+    <element:equality>0</element:equality>
+    <element:equality>0</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="r">
+    <element:equality>0</element:equality>
+    <element:equality>0</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="s">
+    <element:equality>0</element:equality>
+    <element:equality>0</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="t">
+    <element:equality>0</element:equality>
+    <element:equality>0</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="u">
+    <element:equality>0</element:equality>
+    <element:equality>0</element:equality>
+</rdf:Description>
+
+<rdf:Description rdf:about="v">
+    <element:equality>0</element:equality>
+    <element:equality>0</element:equality>
+</rdf:Description>
+
+</rdf:RDF>
+
