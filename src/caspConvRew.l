@@ -1,10 +1,8 @@
 %option noyywrap
 %option c++
 
-
 %x ENDCA
 %x OPSCAN
-
 %x QUOTEDSTRING
 %x VARSCAN
 %x COMMENT
@@ -31,18 +29,11 @@ NODOLLAR (({BINOPERAT}{ANYSPACE})?{AOD}{ANYSPACE}{BINOPERAT}{ANYSPACE})*
 #include <unordered_map>
 using namespace std;
 
-
-    /*string int2string(int number)
-    {
-        stringstream ss;//create a stringstream
-        ss << number << endl;//add number to the stream
-        return ss.str();//return a string with the contents of the stream
-    }*/
-
-int CnsNum = 0, LineNum = 1, VarNum = 0, quoteflag = 0, iii = 0, len = 0, dcn = 0;
+int CnsNum = 0, LineNum = 1, VarNum = 0, quoteflag = 0, iii = 0, len = 0, dcn = 0, Ref = 0;
 bool flag = 0, headguess = 0, body = 0;
-char * tmp, * out;
+char * tmp;
 string info = "", TMPS = "";
+stringstream out;
 stringstream guesses;
 stringstream nguess;
 stringstream domain;
@@ -81,115 +72,114 @@ else if(quoteflag==3){BEGIN(ENDCA);} ECHO; }
 
 ({NODOLLAR}{AOD}{ANYSPACE}{DBINOPERAT}{ANYSPACE})*{NODOLLAR}{AOD}{ANYSPACE}{DCOMPARISON}{ANYSPACE}({NODOLLAR}{AOD}{ANYSPACE}{DBINOPERAT}{ANYSPACE})*{NODOLLAR}{AOD} {
 
-/***yyout << endl << "CONSTRAINT FOUND: " << YYText() << endl;*/
+        /** *yyout << endl << "CONSTRAINT FOUND: |" << YYText() << "|" << endl; */
 
-            dcn = 0; nguess.str(string());
-tmp = new char [YYLeng()]; tmp = strdup(YYText()); len = 0; iii = 0;
-/**yyout << "TMP = " << tmp << endl;*/
-for(int k=0;k<YYLeng();k++){
-if(tmp[k] != ' ' && tmp[k] != '\t'){ len++; }
-if(tmp[k] == '$'){ dcn++;}
-}
-/**yyout << "LEN = " << len << endl;*/
-/**yyout << "DCN = " << dcn << endl;*/
-out = new char [len]; for(int k=0;k<len;k++){out[k]='\0';}
-for(int k=0;k<YYLeng();k++){
-if(tmp[k] != ' ' && tmp[k] != '\t'){ out[iii] = tmp[k]; /**yyout << "III = " << iii << "\t" << out << "\t" << tmp[k] << endl;*/ iii++; }
-}
-/**yyout << "OUT = " << out << endl;
-*yyout << "OUT[" << len-1 << "] = " << out[len-1] << endl;*/
-            if(cnsids.count(string(out))==0){ CnsNum++; cnsids.insert({string(out),CnsNum}); depmap.insert({CnsNum,""});}
-*yyout << "expr" << CnsNum << "(";
-            nguess << "expr" << CnsNum << "(";
-            for(int k=0;k<len;k++){*yyout << out[k]; nguess << out[k];}
-delete tmp; delete out;
-yyless(0);
-BEGIN(VARSCAN);
-}
+        dcn = 0; nguess.str(string()); out.str(string());
+        tmp = new char [YYLeng()]; tmp = strdup(YYText()); len = 0;
+        /** *yyout << "TMP = " << tmp << endl;*/
+        for(int k=0;k<YYLeng();k++){
+            if(tmp[k] != ' ' && tmp[k] != '\t' && tmp[k] != '\0'){ len++; }
+            if(tmp[k] == '$'){ dcn++;}
+        }
+        /** *yyout << "LEN = " << len << endl;
+        *yyout << "DCN = " << dcn << endl; */
 
+        for(int k=0;k<YYLeng();k++){
+            if(tmp[k] != ' ' && tmp[k] != '\t'){ out << tmp[k]; len--; if(len==0){break;} }
+        }
+        /** *yyout << "OUT = " << out << endl;
+        *yyout << "OUT[" << len-1 << "] = " << out[len-1] << endl;*/
+        if(cnsids.count(out.str())==0){ CnsNum++; cnsids.insert({out.str(),CnsNum}); depmap.insert({CnsNum,""});}
+        Ref = cnsids[out.str()];
+        *yyout << "expr" << Ref << "(\"" << out.str();
+        nguess << "expr" << Ref << "(\"" << out.str();
+        *yyout << "\""; nguess << "\"";
+        delete tmp; out.str(string());
+        yyless(0);
+        BEGIN(VARSCAN);
+    }
 
 <VARSCAN>[0-9]+{ANYSPACE}\$ {
 
-            /***yyout << endl << "NUMBER FOUND: " << YYText() << " (middle)" << endl;*/
+        /***yyout << endl << "NUMBER FOUND: " << YYText() << " (middle)" << endl;*/
 
-yyless(0); dcn--;
-BEGIN(OPSCAN);
-}
+        yyless(0); dcn--;
+        BEGIN(OPSCAN);
+    }
 
 <VARSCAN>({BINOPERAT}?{ATOM}{BINOPERAT})*{ATOM}{ANYSPACE}\$ {
 
-/***yyout << endl << "VARIABLE FOUND: " << YYText() << " (middle)" << endl;*/
+        /***yyout << endl << "VARIABLE FOUND: " << YYText() << " (middle)" << endl;*/
 
-tmp = new char [YYLeng()]; tmp = strdup(YYText());
-iii = 0;
-for(int k=0;k<YYLeng();k++){
-if(tmp[k] == ' '||tmp[k] == '$'||tmp[k] == '\t'){ iii = k; break; }
-}
-out = new char [iii];
-for(int k=0;k<iii;k++){ out[k] = tmp[k]; }
-*yyout << ",";
-
-
-nguess << ",";
-for(int k=0;k<iii;k++){*yyout << out[k]; nguess << out[k]; }
-
-TMPS = " "; TMPS.append(out);
-depmap.at(CnsNum).append(TMPS);
-if(varids.count(string(out)) == 0){ varids.insert({string(out),VarNum}); VarNum++; }
-delete tmp; delete out;
-yyless(0); dcn--;
-BEGIN(OPSCAN);
-}
+        tmp = new char [YYLeng()]; tmp = strdup(YYText());
+        iii = 0;
+        for(int k=0;k<YYLeng();k++){
+        if(tmp[k] == ' '||tmp[k] == '$'||tmp[k] == '\t'){ iii = k; break; }
+        }
+        out.str(string());
+        for(int k=0;k<iii;k++){ out << tmp[k]; }
+        *yyout << ",";
+        nguess << ",";
+        *yyout << out.str(); nguess << out.str();
+        TMPS = " "; TMPS.append(out.str());
+        depmap.at(Ref).append(TMPS);
+        if(varids.count(out.str()) == 0){ varids.insert({out.str(),VarNum}); VarNum++; }
+        delete tmp; out.str(string());
+        yyless(0); dcn--;
+        BEGIN(OPSCAN);
+    }
 
 <ENDCA>({COMPARISON}|{BINOPERAT}){ANYSPACE}({BINOPERAT}?{ATOM}{BINOPERAT})*{ATOM}{ANYSPACE}([\.,\|]|{IFSYMBOL}|{DISJ}) {
 
-            /***yyout << endl << "VARIABLE FOUND: " << YYText() << " (end)" << endl;*/
+        /**  *yyout << endl << "VARIABLE FOUND: " << YYText() << " (end)" << endl; */
 
-tmp = new char [YYLeng()]; tmp = strdup(YYText()); iii = 0; len = 0; flag = 0;
-for(int k=0;k<YYLeng();k++){
-if( tmp[k]!=' ' && tmp[k]!='\t' && tmp[k]!='=' && tmp[k]!='<' && tmp[k]!='>' && tmp[k]!='!' && (tmp[k]!='+' || (k>0 && tmp[k-1]!='$')) && (tmp[k]!='-' || (k>0 && tmp[k-1]!='$' && tmp[k-1]!=':')) && (tmp[k]!='*' || (k>0 && tmp[k-1]!='$')) && (tmp[k]!='\\' || (k>0 && tmp[k-1]!='$')) && tmp[k]!='.' && (tmp[k]!=',' || flag) && tmp[k]!=':' && tmp[k]!='|' ){
-len++; if(len==1){ iii=k; }
-if( tmp[k] == '('){ flag = 1; }
-if( tmp[k] == ')' && flag) { flag = 0;}
-}
-}
-out = new char [len];
-for(int k=0;k<len;k++){ out[k] = tmp[iii+k]; }
-*yyout << ",";
-for(int k=0;k<len;k++){ *yyout << out[k]; }
-*yyout << ")";
-if(tmp[YYLeng()-2]==':' && tmp[YYLeng()-1]=='-'){*yyout << " ";}
-if(body){
-nguess << ",";
-for(int k=0;k<len;k++){ nguess << out[k];}
-                nguess << ")";
-                guesses << nguess.str() << " | not_" << nguess.str() << "." << endl;
-}
-TMPS = " "; TMPS.append(out);
-depmap.at(CnsNum).append(TMPS);
-if(varids.count(string(out)) == 0){ varids.insert({string(out),VarNum}); VarNum++; }
-delete tmp; delete out;
-if((YYText()[YYLeng()-3]!=' ' && YYText()[YYLeng()-2]==':' && YYText()[YYLeng()-1]=='-')||(YYText()[YYLeng()-2]==' ' && YYText()[YYLeng()-1]=='|')){yyless(YYLeng()-2);}
-else if((YYText()[YYLeng()-3]==' ' && YYText()[YYLeng()-2]=='v' && YYText()[YYLeng()-1]==' ')||(YYText()[YYLeng()-3]==' ' && YYText()[YYLeng()-2]==':' && YYText()[YYLeng()-1]=='-')){yyless(YYLeng()-3);}
-else{yyless(YYLeng()-1);}
-BEGIN(INITIAL);
-}
+        tmp = new char [YYLeng()]; tmp = strdup(YYText()); iii = 0; len = 0; flag = 0;
+        for(int k=0;k<YYLeng();k++){
+            if( tmp[k]!=' ' && tmp[k]!='\t' && tmp[k]!='=' && tmp[k]!='<' && tmp[k]!='>' && tmp[k]!='!'
+                    && (tmp[k]!='+' || (k>0 && tmp[k-1]!='$')) && (tmp[k]!='-' || (k>0 && tmp[k-1]!='$' && tmp[k-1]!=':'))
+                    && (tmp[k]!='*' || (k>0 && tmp[k-1]!='$')) && (tmp[k]!='\\' || (k>0 && tmp[k-1]!='$')) && tmp[k]!='.'
+                    && (tmp[k]!=',' || flag) && tmp[k]!=':' && tmp[k]!='|' && (tmp[k] != 'v' ||(k>0 && tmp[k-1]!=' ')) ){
+                len++; if(len==1){ iii=k; }
+                if( tmp[k] == '('){ flag = 1; }
+                if( tmp[k] == ')' && flag) { flag = 0;}
+            }
+        }
+        out.str(string());
+        for(int k=0;k<len;k++){ out << tmp[iii+k]; }
+        *yyout << ",";
+        *yyout << out.str() << ")";
+        if(tmp[YYLeng()-2]==':' && tmp[YYLeng()-1]=='-'){*yyout << " ";}
+        if(body){
+            nguess << ",";
+            nguess << out.str();
+            nguess << ")";
+            guesses << nguess.str() << " v not_" << nguess.str() << "." << endl;
+        }
+        TMPS = " "; TMPS.append(out.str());
+        depmap.at(Ref).append(TMPS);
+        if(varids.count(out.str()) == 0){ varids.insert({out.str(),VarNum}); VarNum++; }
+        delete tmp; out.str(string());
+        if((YYText()[YYLeng()-3]!=' ' && YYText()[YYLeng()-2]==':' && YYText()[YYLeng()-1]=='-')||(YYText()[YYLeng()-2]==' ' && YYText()[YYLeng()-1]=='|')){yyless(YYLeng()-2);}
+        else if((YYText()[YYLeng()-3]==' ' && YYText()[YYLeng()-2]=='v' && YYText()[YYLeng()-1]==' ')||(YYText()[YYLeng()-3]==' ' && YYText()[YYLeng()-2]==':' && YYText()[YYLeng()-1]=='-')){yyless(YYLeng()-3);}
+        else{yyless(YYLeng()-1);}
+        BEGIN(INITIAL);
+    }
 
 <ENDCA>({COMPARISON}|{BINOPERAT}){ANYSPACE}[0-9]+{ANYSPACE}([\.,\|]|{IFSYMBOL}|{DISJ}) {
 
-            /***yyout << endl << "NUMBER FOUND: " << YYText() << " (end)" << endl;*/
+        /***yyout << endl << "NUMBER FOUND: " << YYText() << " (end)" << endl;*/
 
-*yyout << ")";
-if(tmp[YYLeng()-2]==':' && tmp[YYLeng()-1]=='-'){*yyout << " ";}
-if(body){
-nguess << ")";
-                guesses << nguess.str() << " | not_" << nguess.str() << "." << endl;
-}
-if((YYText()[YYLeng()-3]!=' ' && YYText()[YYLeng()-2]==':' && YYText()[YYLeng()-1]=='-')||(YYText()[YYLeng()-2]==' ' && YYText()[YYLeng()-1]=='|')){yyless(YYLeng()-2);}
-else if((YYText()[YYLeng()-3]==' ' && YYText()[YYLeng()-2]=='v' && YYText()[YYLeng()-1]==' ')||(YYText()[YYLeng()-3]==' ' && YYText()[YYLeng()-2]==':' && YYText()[YYLeng()-1]=='-')){yyless(YYLeng()-3);}
-else{yyless(YYLeng()-1);}
+        *yyout << ")";
+        if(tmp[YYLeng()-2]==':' && tmp[YYLeng()-1]=='-'){*yyout << " ";}
+        if(body){
+            nguess << ")";
+            guesses << nguess.str() << " v not_" << nguess.str() << "." << endl;
+        }
+        if((YYText()[YYLeng()-3]!=' ' && YYText()[YYLeng()-2]==':' && YYText()[YYLeng()-1]=='-')||(YYText()[YYLeng()-2]==' ' && YYText()[YYLeng()-1]=='|')){yyless(YYLeng()-2);}
+        else if((YYText()[YYLeng()-3]==' ' && YYText()[YYLeng()-2]=='v' && YYText()[YYLeng()-1]==' ')||(YYText()[YYLeng()-3]==' ' && YYText()[YYLeng()-2]==':' && YYText()[YYLeng()-1]=='-')){yyless(YYLeng()-3);}
+        else{yyless(YYLeng()-1);}
 
-BEGIN(INITIAL);
+        BEGIN(INITIAL);
 }
 
 <OPSCAN>{DCOMPARISON} { yyless(1); if( dcn==0 ){ BEGIN(ENDCA); }else{ BEGIN(VARSCAN); } }
@@ -218,32 +208,21 @@ char* AppendDotConv(char* array)
     return ret;
 }
 
-void convert(istream& i, ostream& o)
+void CaspConverter::convert(istream& i, ostream& o)
 {
-    string S = ""; bool B = 0;
-    bool erased = 1, copied = 0;
-    unordered_map<int,bool*> Map = {};
-
-    CnsNum = 0; LineNum = 1; VarNum = 0; quoteflag = 0; iii = 0; len = 0; dcn = 0;
-    flag = 0; body = 0;
-    info = ""; TMPS = "";
-    guesses.str(string()); nguess.str(string()); domain.str(string());
-    depmap = {}; varids = {}; cnsids = {};
 
     istream * inp = &i; ostream * outp = &o;
 
     FlexLexer* lexer = new yyFlexLexer;
     while(lexer->yylex(inp, outp) != 0);
-          /*   while(lexer->yylex() != 0)
-                 ;*/
-
 
     o << endl << guesses.str() << endl;
     guesses.str(string());
 
-    Map = {};
+    unordered_map<int,bool*> Map = {};
     for (int h=1; h<depmap.size()+1; h++){ Map[h] = new bool [VarNum]; for (int j=0;j<VarNum;j++){ Map[h][j] = 0;}}
-    S = ""; B = 0;
+    string S = "";
+    bool B = 0;
     for (int h=1; h<depmap.size()+1; h++){
         S = "";
         for (int j=0; j<depmap.at(h).size(); j++){
@@ -266,7 +245,7 @@ void convert(istream& i, ostream& o)
     * *yyout << "}" << endl;
     * }
     */
-    erased = 1, copied = 0;
+    bool erased = 1, copied = 0;
     int * list; list = new int [2*CnsNum]; for(int i=0;i<2*CnsNum;i++){list[i] = 0;} iii = 0; len = 1;
     while(true){
         while(Map.count(len)==0){ len++; }
@@ -309,7 +288,5 @@ void convert(istream& i, ostream& o)
         if(list[iii]==0){ break;}
     }
     delete list;
-
-    /**yyout << "\n# Conversion of file " << argv[L] << " ends.\n" << endl;*/
    return;
 }
