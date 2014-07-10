@@ -1,1 +1,15 @@
 dlvhex-caspplugin -- Constraint ASP plugin for dlvhex
+
+To install:
+$ ./bootstrap.sh (uses files in dlvhex-common from hexhex/build!)
+$ ./configure
+$ make
+# make install (maybe also non-root, depending on configure options)
+
+To modify src/caspconverter.cpp, the file you really have to modify
+is src/caspconverter.l. After changes in the .l file are done, run
+$ flex caspconverter.l
+which will generate the new caspconverter.cpp (you'll need Flex).
+Still, you (probably) won't need Flex if you don't need to modify
+caspconverter.cpp, or if you manage to directly modify it (start
+reading the file from the end, in that case!) 

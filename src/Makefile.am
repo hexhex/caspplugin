@@ -12,14 +12,13 @@ libdlvhexplugin_casp_la_SOURCES = \
 		gecodesolver.cpp \
 		simpleparser.cpp \
 		caspconverter.cpp \
-		casprewriter.cpp \
 		learningprocessor.cpp \
 		caspplugin.cpp
 
 #
 # extend compiler flags by CFLAGS of other needed libraries
 #
-AM_CPPFLAGS = \
+AM_CPPFLAGS = -std=c++11 \
 	-I$(top_srcdir)/include \
 	$(BOOST_CPPFLAGS) \
 	$(DLVHEX_CFLAGS)

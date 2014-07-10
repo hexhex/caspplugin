@@ -2,7 +2,6 @@
 
 #include "casp/gecodesolver.h"
 #include "casp/caspconverter.h"
-#include "casp/casprewriter.h"
 #include "casp/learningprocessor.h"
 #include "casp/utility.h"
 
@@ -23,7 +22,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string.hpp>
 
-#define NDEBUG
+
 
 namespace dlvhex {
   namespace casp {
@@ -44,13 +43,14 @@ namespace dlvhex {
 				_learningProcessor(learningProcessor),
 				_simpleParser(simpleParser)
 			{
-				// This add predicates for all input parameters
+				/** This add predicates for all input parameters */
 				for (int i = 0; i < 40; i++)
 					addInputPredicate();
-				
+
+
 				setOutputArity(0);
 			}
-      
+
 			/**
 			 * @brief Retrieves answer for query.
 			 * Should not be called, as learning is enabled.
@@ -63,8 +63,7 @@ namespace dlvhex {
 			/**
 			 * @brief Retrieves answer for query and learns IIS based on processor
 			 */
-			virtual void
-			retrieve(const Query& query, Answer& answer, NogoodContainerPtr nogoods) throw (PluginError)
+			virtual void retrieve(const Query& query, Answer& answer, NogoodContainerPtr nogoods) throw (PluginError)
 			{
 				Registry &registry = *getRegistry();
 
@@ -77,15 +76,15 @@ namespace dlvhex {
 				std::pair<Interpretation::TrueBitIterator, Interpretation::TrueBitIterator>
 					trueAtoms = query.interpretation->trueBits();
 
-				vector<ID> atomIds;
+				std::vector<ID> atomIds;
 
-				// Iterate over all input interpretation
+				/** Iterate over all input interpretation */
 				for (Interpretation::TrueBitIterator it = trueAtoms.first; it != trueAtoms.second; it++) {
 					const OrdinaryAtom &atom = query.interpretation->getAtomToBit(it);
 
 					Term name = registry.terms.getByID(atom.tuple[0]);
 
-					// Store in local variables input data in predicates
+					/** Store in local variables input data in predicates */
 					std::string expr = "";
 					if (boost::starts_with(name.symbol,"expr")) {
 						Term value = registry.terms.getByID(atom.tuple[1]);
@@ -103,20 +102,18 @@ namespace dlvhex {
 
 						globalConstraintValue = removeQuotes(registry.terms.getByID(atom.tuple[1]).symbol);
 					}
-					else { // this predicate received as input to sum aggregate function
+					else { /** this predicate received as input to sum aggregate function */
 						sumData.push_back(atom.text);
 					}
-					if (expr != "") { // handle expr and not_expr
-						// In each line, following replacements are done back and forth
-						// '{' - '('
-						// '}' - ')'
-						// ';' - ','
-						// This is due to the fact that hex parser splits improperly them inside of string term
+					if (expr != "") { /** handle expr and not_expr
+                                       * In each line, following replacements are done back and forth:
+                                       * '{' - '('        '}' - ')'        ';' - ','
+                                       * This is due to the fact that hex parser splits improperly them inside of string term */
 						boost::replace_all(expr, "{", "(");
 						boost::replace_all(expr, "}", ")");
 						boost::replace_all(expr, ";", ",");
 
-						// Replace all ASP variables with their actual values.
+						/** Replace all ASP variables with their actual values. */
 						int variableIndex = 2;
 
 						boost::char_separator<char> sep(" ", ",v.:-$%<>=+-/*\"<>=()", boost::drop_empty_tokens);
@@ -126,10 +123,10 @@ namespace dlvhex {
 						for ( boost::tokenizer<boost::char_separator<char> >::iterator it = tokens.begin(); it != tokens.end(); ++it) {
 							std::string val = *it;
 							if (isVariable(val)) {
-								string res;
+								std::string res;
 								ID id = atom.tuple[variableIndex++];
 								if (id.isIntegerTerm()) {
-									ostringstream os(res);
+									std::ostringstream os(res);
 									os << id.address;
 									res = os.str();
 								}
@@ -144,25 +141,25 @@ namespace dlvhex {
 							else result += val;
 						}
 
-						// Store the replaced expression without quotes
+						/** Store the replaced expression without quotes */
 						expressions.push_back(removeQuotes(result));
 						atomIds.push_back(registry.ogatoms.getIDByTuple(atom.tuple));
 					}
 				}
 
-				// Call gecode solver
+				/** Call gecode solver */
 				GecodeSolver* solver = new GecodeSolver(sumData, domain, globalConstraintName, globalConstraintValue, _simpleParser);
 				solver->propagate(expressions);
 
 				Gecode::Search::Options opt;
 				Gecode::BAB<GecodeSolver> solutions(solver,opt);
 
-				// If there's at least one solution, then data is consistent
+				/** If there's at least one solution, then data is consistent */
 				if (solutions.next()) {
 					Tuple out;
 					answer.get().push_back(out);
 				}
-				else if (nogoods != 0){ // otherwise we need to learn IIS from it
+				else if (nogoods != 0){ /** otherwise we need to learn IIS from it */
 					GecodeSolver* otherSolver = new GecodeSolver(sumData, domain, globalConstraintName, globalConstraintValue, _simpleParser);
 					_learningProcessor->learnNogoods(nogoods, expressions, atomIds, otherSolver);
 					delete otherSolver;
@@ -174,29 +171,29 @@ namespace dlvhex {
 			boost::shared_ptr<SimpleParser> _simpleParser;
 
 	};
-    
-	//
-	// A plugin must derive from PluginInterface
-	//
+
+
+    /** A plugin must derive from PluginInterface */
+
 	class CASPPlugin : public PluginInterface
     {
 		private:
 			boost::shared_ptr<PluginConverter> _converter;
-			boost::shared_ptr<PluginRewriter> _rewriter;
+			boost::shared_ptr<PluginRewriter> _rewriter; /** ALTERNATIVE: no need for rewriter */
 			boost::shared_ptr<SimpleParser> _simpleParser;
 			boost::shared_ptr<LearningProcessor> _learningProcessor;
 
 		public:
-      
+
     		CASPPlugin() :
     			_converter(new DefaultConverter()),
-    			_rewriter(new DefaultRewriter()),
+    			/*_rewriter(new DefaultRewriter()),*/ /**ALTERNATIVE: no need for rewriter */
     			_simpleParser(new SimpleParser()),
     			_learningProcessor(new NoLearningProcessor(_simpleParser))
 			{
 				setNameVersion(PACKAGE_TARNAME,CASPPLUGIN_VERSION_MAJOR,CASPPLUGIN_VERSION_MINOR,CASPPLUGIN_VERSION_MICRO);
 			}
-		
+
     		/**	Gecode::BAB<GecodeSolver> solutions(innerSolver);
 				// If it is inconsistent, IIS found, break
 				if (!solutions.next()) {
@@ -209,9 +206,9 @@ namespace dlvhex {
 			virtual std::vector<PluginAtomPtr> createAtoms(ProgramCtx&) const
 			{
 				std::vector<PluginAtomPtr> ret;
-			
+
 				ret.push_back(PluginAtomPtr(new ConsistencyAtom(_learningProcessor, _simpleParser), PluginPtrDeleter<PluginAtom>()));
-			
+
 				return ret;
 			}
 
@@ -219,25 +216,25 @@ namespace dlvhex {
 			 * @brief prints possible command line options
 			 */
 			virtual void printUsage(std::ostream& o) const {
-				o << "     --cspenable - enabling casp plugin" << endl;
-				o << "     --headguess - enabling guessing in constraint heads" << endl;
-				o << "     --csplearning=[none,deletion,forward,backward,cc,wcc] " << endl;
-				o << "                   Enable csp learning(none by default)." << endl;
-				o << "                   none        - No learning." << endl;
-				o << "                   deletion    - Deletion filtering learning." << endl;
-				o << "                   forward     - Forward filtering learning." << endl;
-				o << "                   jumpforward - Jump forward filtering learning." << endl;
-				o << "                   backward    - Backward filtering learning." << endl;
-				o << "                   range       - Range filtering learning." << endl;
-				o << "                   cc          - Connected component filtering learning." << endl;
-				o << "                   wcc         - Weighted connected component filtering learning." << endl;
+				o << "     --cspenable - enabling casp plugin" << std::endl;
+				/*o << "     --headguess - enabling guessing in constraint heads" << std::endl;*/ /**ALT-TODO: headguess opt*/
+				o << "     --csplearning=[none,deletion,forward,backward,cc,wcc] " << std::endl;
+				o << "                   Enable csp learning(none by default)." << std::endl;
+				o << "                   none        - No learning." << std::endl;
+				o << "                   deletion    - Deletion filtering learning." << std::endl;
+				o << "                   forward     - Forward filtering learning." << std::endl;
+				o << "                   jumpforward - Jump forward filtering learning." << std::endl;
+				o << "                   backward    - Backward filtering learning." << std::endl;
+				o << "                   range       - Range filtering learning." << std::endl;
+				o << "                   cc          - Connected component filtering learning." << std::endl;
+				o << "                   wcc         - Weighted connected component filtering learning." << std::endl;
 			}
-      
+
 			/**
 			 * @brief Processes command line options.
 			 * The possible options include learning processor
 			 */
-			virtual void 
+			virtual void
 			processOptions(std::list<const char*>& pluginOptions, ProgramCtx& ctx)
 			{
 				typedef std::list<const char*>::iterator listIterator;
@@ -246,23 +243,23 @@ namespace dlvhex {
 					std::string option(*it);
 
 					if (option.find("--cspenable") != std::string::npos) {
-						boost::shared_ptr<PluginConverter> converter(new CaspConverter());
-						boost::shared_ptr<PluginRewriter> rewriter(new CaspRewriter(false));
+						boost::shared_ptr<PluginConverter> converter(new CaspConverter(false));
 						_converter = converter;
-						_rewriter = rewriter;
-
+						/*boost::shared_ptr<PluginRewriter> rewriter(new CaspRewriter(false));
+						_rewriter = rewriter;*/
+						/**ALTERNATIVE*/
 						it = pluginOptions.erase(it);
 					}
-					
-					else if (option.find("--headguess") != std::string::npos) {
+
+					/*else if (option.find("--headguess") != std::string::npos) {
 						boost::shared_ptr<PluginRewriter> rewriter(new CaspRewriter(true));
 						_rewriter = rewriter;
 
 						it = pluginOptions.erase(it);
-					}
+					}*/ /**ALT_TODO headguess opt*/
 
 					else if (option.find("--csplearning=") != std::string::npos) {
-						string processorName = option.substr(std::string("--csplearning=").length());
+						std::string processorName = option.substr(std::string("--csplearning=").length());
 						if (processorName == "none") {
 							_learningProcessor = boost::shared_ptr<LearningProcessor>(new NoLearningProcessor(_simpleParser));
 						}
@@ -300,14 +297,14 @@ namespace dlvhex {
 				return _converter;
 			}
 
-			virtual PluginRewriterPtr createRewriter(ProgramCtx& ctx) {
+			/*virtual PluginRewriterPtr createRewriter(ProgramCtx& ctx) {
 				return _rewriter;
-			}
+			} *//**ALTERNATIVE*/
 	};
-    
-    
+
+
 	CASPPlugin theCaspPlugin;
-    
+
   } // namespace casp
 } // namespace dlvhex
 
@@ -319,5 +316,6 @@ void * PLUGINIMPORTFUNCTION()
 {
 	return reinterpret_cast<void*>(& dlvhex::casp::theCaspPlugin);
 }
+
 
 

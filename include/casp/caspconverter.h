@@ -16,10 +16,12 @@ public:
 
 class CaspConverter : public dlvhex::PluginConverter {
 public:
-	CaspConverter();
+	CaspConverter(bool addGuessToHead);
 	virtual ~CaspConverter();
 
 	virtual void convert(std::istream& i, std::ostream& o);
+private:
+	bool _addGuessToHead;
 };
 
 
