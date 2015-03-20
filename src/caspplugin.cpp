@@ -151,7 +151,7 @@ public:
 	};
 
 	struct caspVariable:
-		SemanticActionBase<CASPParserModuleSemantics, ID, caspVariable>
+		SemanticActionBase<CASPParserModuleSemantics, string, caspVariable>
 	{
 			caspVariable(CASPParserModuleSemantics& mgr):
 			caspVariable::base_type(mgr)
@@ -177,28 +177,94 @@ struct sem<CASPParserModuleSemantics::caspRule>
   }
 };
 
-template<>
-struct sem<CASPParserModuleSemantics::caspVariable>
-{
-//
-  void operator()(
-    CASPParserModuleSemantics& mgr,
-    const boost::fusion::vector2<std::basic_string<char>, boost::fusion::vector2<char, std::vector<char, std::allocator<char> > > >& source,
-    ID& target)
-  {
-  }
-};
 
 template<>
 struct sem<CASPParserModuleSemantics::caspElement>
 {
-		 void operator()(
-		    CASPParserModuleSemantics& mgr,
-		    const boost::fusion::vector2<dlvhex::ID, std::vector<boost::fusion::vector2<dlvhex::ID, dlvhex::ID>,
-		    std::allocator<boost::fusion::vector2<dlvhex::ID, dlvhex::ID> > > >& source,
-		    ID& target)
-  {
-  }
+
+	void operator()(
+			CASPParserModuleSemantics& mgr,
+			const boost::fusion::vector2 < boost::variant<dlvhex::ID, std::basic_string<char> >,
+			std::vector<boost::fusion::vector2<dlvhex::ID, boost::variant<dlvhex::ID, std::basic_string<char> > >,
+			std::allocator<boost::fusion::vector2<dlvhex::ID, boost::variant<dlvhex::ID, std::basic_string<char> > > > > > & source,
+			ID& target)
+	{
+			  ostringstream os;
+			  set<ID> variables;
+			  RegistryPtr reg = mgr.ctx.registry();
+			  bool caspVariable=false;
+
+			  ID variable;
+
+			  caspVariable=getVariable(reg,boost::fusion::at_c<0>(source),variable);
+
+			  if(!caspVariable)
+			  {
+				  reg->getVariablesInID(variable,variables,true);
+			  }
+			  caspVariable=false;
+			  os<<printToString<RawPrinter>(variable, reg);
+			  std::vector<boost::fusion::vector2<dlvhex::ID, boost::variant<dlvhex::ID, std::basic_string<char> > > >  v=boost::fusion::at_c<1>(source);
+			  for(int i=0;i<v.size();i++)
+			  {
+
+				  boost::fusion::vector2<dlvhex::ID, boost::variant<dlvhex::ID, std::basic_string<char> > > v1=v[i];
+
+				  ID operatorID= boost::fusion::at_c<0>(v1);
+				  os<<printToString<RawPrinter>(operatorID, reg);
+				  caspVariable=getVariable(reg,boost::fusion::at_c<0>(source),variable);
+				  os<<printToString<RawPrinter>(variable, reg);
+				  if(!caspVariable)
+				  {
+					  reg->getVariablesInID(variable,variables,true);
+				  }
+				  caspVariable=false;
+			  }
+
+			  //result atom of caspElement
+			  OrdinaryAtom atom(ID::MAINKIND_ATOM);
+			  string name="expr";
+			  name= name + boost::lexical_cast< std::string >(variables.size());
+			  ID atomName=reg->storeConstantTerm(name);
+			  atom.tuple.push_back(atomName);
+			  ID expression=reg->storeConstantTerm("\""+os.str()+"\"");
+			  atom.tuple.push_back(expression);
+			  for(set<ID>::iterator i=variables.begin();i!=variables.end();i++)
+			  {
+				  atom.tuple.push_back(*i);
+			  }
+			  target=reg->storeOrdinaryAtom(atom);
+			  cout<<printToString<RawPrinter>(target, reg)<<endl;
+	}
+
+	bool getVariable(RegistryPtr& reg,const boost::variant<dlvhex::ID, std::basic_string<char> >& variant,ID& toReturn)
+	{
+		 if(const std::basic_string<char>* variable = boost::get< std::basic_string<char> >( &variant ))
+		 {
+			 toReturn=reg->storeConstantTerm(*variable);
+			 return true;
+		 }
+		 else
+		 {
+			 toReturn=*( boost::get< ID >( &variant ));
+			 return false;
+		 }
+	}
+};
+
+template<>
+struct sem<CASPParserModuleSemantics::caspVariable>
+{
+	void operator()(
+			CASPParserModuleSemantics& mgr,
+			const boost::fusion::vector2<char, std::vector<char, std::allocator<char> > > &  source,
+			string& target)
+	{
+		target=boost::fusion::at_c<0>(source);
+		std::vector<char, std::allocator<char> > v=boost::fusion::at_c<1>(source);
+		for(int i=0;i<v.size();i++)
+			target+=v[i];
+	}
 };
 template<>
 struct sem<CASPParserModuleSemantics::caspDirective>
@@ -263,7 +329,7 @@ namespace {
 
   			caspVariable
   		= (
-  				 qi::string("£") >> qi::lexeme[ ascii::upper >> *(ascii::alnum | qi::char_('_')) ]
+  				 qi::lit("$") >> qi::lexeme[ ascii::upper >> *(ascii::alnum | qi::char_('_')) ]
 		)[Sem::caspVariable(sem)];
 
   			caspDirective
@@ -283,7 +349,7 @@ namespace {
   	qi::rule<Iterator, ID(), Skipper> caspElement;
   	qi::rule<Iterator, ID(), Skipper> caspDirective;
   	qi::rule<Iterator, ID(), Skipper> caspOperator;
-  	qi::rule<Iterator, ID(), Skipper> caspVariable;
+  	qi::rule<Iterator, string(), Skipper> caspVariable;
   };
 
 struct CASPParserModuleGrammar:
