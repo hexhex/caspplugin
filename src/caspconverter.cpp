@@ -113,6 +113,7 @@ void CaspConverter::convert(istream& i, ostream& o) {
 
 					for (int i = 0; i <= startIndex; i++) {
 						o << expressions[i];
+						cout<<expressions[i];
 					}
 
 					for (int i = startIndex + 1; i < expressions.size(); i++) {
@@ -156,13 +157,14 @@ void CaspConverter::convert(istream& i, ostream& o) {
 							boost::replace_all(caspExpression, "(", "{");
 							boost::replace_all(caspExpression, ")", "}");
 							boost::replace_all(caspExpression, ",", ";");
-								
+							cout << "expr" << variables.size() << "(\"" << caspExpression << "\"";
 							o << "expr" << variables.size() << "(\"" << caspExpression << "\"";
 							for (int i = 0; i < variables.size(); i++) {
 								o << "," << variables[i];
+								cout<<"," << variables[i];
 							}
 							o << ")" << token;
-
+							cout<<")"<<token;
 							variables.clear();
 
 							break;
@@ -191,8 +193,10 @@ void CaspConverter::convert(istream& i, ostream& o) {
 		}
 		for (int i = 0; i < expressions.size(); i++) {
 			o << expressions[i];
+			cout<<expressions[i];
 		}
 		o << endl;
+		cout<<endl;
 
 		expressions.clear();
 	}
@@ -200,13 +204,17 @@ void CaspConverter::convert(istream& i, ostream& o) {
 	int maxSumPredicates = 15;
 
 	o << ":- not &casp[domain,maximize,minimize";
+	cout << ":- not &casp[domain,maximize,minimize";
 	for (int i = 0; i < 11; i++) {
 		o << ",expr" << i << ",not_expr" << i;
+		cout<<",expr" << i << ",not_expr" << i;
 	}
+
 	for (int i = 0; i < sumPredicates.size(); i++)
 		o << "," << sumPredicates[i];
 
 	for (int i = 0; i < maxSumPredicates - sumPredicates.size(); i++)
 		o << "," << "dummy_sum_predicate" << i;
 	o << "]()." << endl;
+	cout<< "]()." << endl;
 }

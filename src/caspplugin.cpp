@@ -1,323 +1,380 @@
-#include "config.h"
+#include "casp/caspplugin.h"
+#include <dlvhex2/Printer.h>
+#include <boost/lexical_cast.hpp>
+DLVHEX_NAMESPACE_BEGIN
 
-#include "casp/gecodesolver.h"
-#include "casp/caspconverter.h"
-#include "casp/casprewriter.h"
-#include "casp/learningprocessor.h"
-#include "casp/utility.h"
+using namespace dlvhex::casp;
+namespace spirit = boost::spirit;
+namespace qi = boost::spirit::qi;
 
-#include <dlvhex2/PluginInterface.h>
-#include <dlvhex2/ProgramCtx.h>
-#include <dlvhex2/Term.h>
-#include <dlvhex2/Registry.h>
-#include <dlvhex2/OrdinaryAtomTable.h>
-#include <dlvhex2/Table.h>
-
-#include <gecode/driver.hh>
-#include <gecode/int.hh>
-#include <gecode/minimodel.hh>
-
-#include <string>
-#include <utility>
-#include <boost/tokenizer.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/algorithm/string.hpp>
-
-#define NDEBUG
-
-namespace dlvhex {
-  namespace casp {
-
-  	/**
-  	 * @brief Defines the consistency atom of the plugin:
-  	 * :- not casp&[dom, exprN, not_exprN, globalConstraints]
-  	 */
-    class ConsistencyAtom : public PluginAtom
-    {
-		public:
-    		/**
-    		 * Simple constuctor, which accepts option for IIS learning
-    		 */
-			ConsistencyAtom(boost::shared_ptr<LearningProcessor> learningProcessor,
-					boost::shared_ptr<SimpleParser> simpleParser) :
-				PluginAtom( "casp", 0),
-				_learningProcessor(learningProcessor),
-				_simpleParser(simpleParser)
-			{
-				// This add predicates for all input parameters
-				for (int i = 0; i < 40; i++)
-					addInputPredicate();
-				
-				setOutputArity(0);
-			}
-      
-			/**
-			 * @brief Retrieves answer for query.
-			 * Should not be called, as learning is enabled.
-			 */
-			virtual void retrieve(const Query& query, Answer& answer) throw (PluginError)
-			{
-				assert(false);
-			}
-
-			/**
-			 * @brief Retrieves answer for query and learns IIS based on processor
-			 */
-			virtual void
-			retrieve(const Query& query, Answer& answer, NogoodContainerPtr nogoods) throw (PluginError)
-			{
-				Registry &registry = *getRegistry();
-
-				std::vector<std::string> expressions;
-				std::vector<std::string> sumData;
-				std::string domain = "";
-				std::string globalConstraintName = "";
-				std::string globalConstraintValue = "";
-
-				std::pair<Interpretation::TrueBitIterator, Interpretation::TrueBitIterator>
-					trueAtoms = query.interpretation->trueBits();
-
-				vector<ID> atomIds;
-
-				// Iterate over all input interpretation
-				for (Interpretation::TrueBitIterator it = trueAtoms.first; it != trueAtoms.second; it++) {
-					const OrdinaryAtom &atom = query.interpretation->getAtomToBit(it);
-
-					Term name = registry.terms.getByID(atom.tuple[0]);
-
-					// Store in local variables input data in predicates
-					std::string expr = "";
-					if (boost::starts_with(name.symbol,"expr")) {
-						Term value = registry.terms.getByID(atom.tuple[1]);
-						expr = value.symbol;
-					}
-					else if (boost::starts_with(name.symbol,"not_expr")) {
-						Term value = registry.terms.getByID(atom.tuple[1]);
-						expr = replaceInvertibleOperator(value.symbol);
-					}
-					else if (name.symbol == "domain") {
-						domain = removeQuotes(registry.terms.getByID(atom.tuple[1]).symbol);
-					}
-					else if (name.symbol == "maximize" || name.symbol == "minimize") {
-						globalConstraintName = name.symbol;
-
-						globalConstraintValue = removeQuotes(registry.terms.getByID(atom.tuple[1]).symbol);
-					}
-					else { // this predicate received as input to sum aggregate function
-						sumData.push_back(atom.text);
-					}
-					if (expr != "") { // handle expr and not_expr
-						// In each line, following replacements are done back and forth
-						// '{' - '('
-						// '}' - ')'
-						// ';' - ','
-						// This is due to the fact that hex parser splits improperly them inside of string term
-						boost::replace_all(expr, "{", "(");
-						boost::replace_all(expr, "}", ")");
-						boost::replace_all(expr, ";", ",");
-
-						// Replace all ASP variables with their actual values.
-						int variableIndex = 2;
-
-						boost::char_separator<char> sep(" ", ",v.:-$%<>=+-/*\"<>=()", boost::drop_empty_tokens);
-
-						std::string result = "";
-						boost::tokenizer<boost::char_separator<char> > tokens(expr, sep);
-						for ( boost::tokenizer<boost::char_separator<char> >::iterator it = tokens.begin(); it != tokens.end(); ++it) {
-							std::string val = *it;
-							if (isVariable(val)) {
-								string res;
-								ID id = atom.tuple[variableIndex++];
-								if (id.isIntegerTerm()) {
-									ostringstream os(res);
-									os << id.address;
-									res = os.str();
-								}
-								else if (id.isTerm()) {
-									res = registry.terms.getByID(id).symbol;
-								}
-								else if (id.isOrdinaryAtom()) {
-									res = registry.lookupOrdinaryAtom(id).text;
-								}
-								result += res;
-							}
-							else result += val;
-						}
-
-						// Store the replaced expression without quotes
-						expressions.push_back(removeQuotes(result));
-						atomIds.push_back(registry.ogatoms.getIDByTuple(atom.tuple));
-					}
-				}
-
-				// Call gecode solver
-				GecodeSolver* solver = new GecodeSolver(sumData, domain, globalConstraintName, globalConstraintValue, _simpleParser);
-				solver->propagate(expressions);
-
-				Gecode::Search::Options opt;
-				Gecode::BAB<GecodeSolver> solutions(solver,opt);
-
-				// If there's at least one solution, then data is consistent
-				if (solutions.next()) {
-					Tuple out;
-					answer.get().push_back(out);
-				}
-				else if (nogoods != 0){ // otherwise we need to learn IIS from it
-					GecodeSolver* otherSolver = new GecodeSolver(sumData, domain, globalConstraintName, globalConstraintValue, _simpleParser);
-					_learningProcessor->learnNogoods(nogoods, expressions, atomIds, otherSolver);
-					delete otherSolver;
-				}
-				delete solver;
-			}
-		private:
-			boost::shared_ptr<LearningProcessor> _learningProcessor;
-			boost::shared_ptr<SimpleParser> _simpleParser;
-
-	};
-    
-	//
-	// A plugin must derive from PluginInterface
-	//
-	class CASPPlugin : public PluginInterface
-    {
-		private:
-			boost::shared_ptr<PluginConverter> _converter;
-			boost::shared_ptr<PluginRewriter> _rewriter;
-			boost::shared_ptr<SimpleParser> _simpleParser;
-			boost::shared_ptr<LearningProcessor> _learningProcessor;
-
-		public:
-      
-    		CASPPlugin() :
-    			_converter(new DefaultConverter()),
-    			_rewriter(new DefaultRewriter()),
-    			_simpleParser(new SimpleParser()),
-    			_learningProcessor(new NoLearningProcessor(_simpleParser))
-			{
-				setNameVersion(PACKAGE_TARNAME,CASPPLUGIN_VERSION_MAJOR,CASPPLUGIN_VERSION_MINOR,CASPPLUGIN_VERSION_MICRO);
-			}
-		
-    		/**	Gecode::BAB<GecodeSolver> solutions(innerSolver);
-				// If it is inconsistent, IIS found, break
-				if (!solutions.next()) {
-					processedFlags[i] = 1;
-					propagateIndex = i;
-					break;
-
-    		 * @brief Creates single consistency atom
-    		 */
-			virtual std::vector<PluginAtomPtr> createAtoms(ProgramCtx&) const
-			{
-				std::vector<PluginAtomPtr> ret;
-			
-				ret.push_back(PluginAtomPtr(new ConsistencyAtom(_learningProcessor, _simpleParser), PluginPtrDeleter<PluginAtom>()));
-			
-				return ret;
-			}
-
-			/**
-			 * @brief prints possible command line options
-			 */
-			virtual void printUsage(std::ostream& o) const {
-				o << "     --cspenable - enabling casp plugin" << endl;
-				o << "     --headguess - enabling guessing in constraint heads" << endl;
-				o << "     --csplearning=[none,deletion,forward,backward,cc,wcc] " << endl;
-				o << "                   Enable csp learning(none by default)." << endl;
-				o << "                   none        - No learning." << endl;
-				o << "                   deletion    - Deletion filtering learning." << endl;
-				o << "                   forward     - Forward filtering learning." << endl;
-				o << "                   jumpforward - Jump forward filtering learning." << endl;
-				o << "                   backward    - Backward filtering learning." << endl;
-				o << "                   range       - Range filtering learning." << endl;
-				o << "                   cc          - Connected component filtering learning." << endl;
-				o << "                   wcc         - Weighted connected component filtering learning." << endl;
-			}
-      
-			/**
-			 * @brief Processes command line options.
-			 * The possible options include learning processor
-			 */
-			virtual void 
-			processOptions(std::list<const char*>& pluginOptions, ProgramCtx& ctx)
-			{
-				typedef std::list<const char*>::iterator listIterator;
-				listIterator it = pluginOptions.begin();
-				while (it != pluginOptions.end()) {
-					std::string option(*it);
-
-					if (option.find("--cspenable") != std::string::npos) {
-						boost::shared_ptr<PluginConverter> converter(new CaspConverter());
-						boost::shared_ptr<PluginRewriter> rewriter(new CaspRewriter(false));
-						_converter = converter;
-						_rewriter = rewriter;
-
-						it = pluginOptions.erase(it);
-					}
-					
-					else if (option.find("--headguess") != std::string::npos) {
-						boost::shared_ptr<PluginRewriter> rewriter(new CaspRewriter(true));
-						_rewriter = rewriter;
-
-						it = pluginOptions.erase(it);
-					}
-
-					else if (option.find("--csplearning=") != std::string::npos) {
-						string processorName = option.substr(std::string("--csplearning=").length());
-						if (processorName == "none") {
-							_learningProcessor = boost::shared_ptr<LearningProcessor>(new NoLearningProcessor(_simpleParser));
-						}
-						else if (processorName == "deletion") {
-							_learningProcessor = boost::shared_ptr<LearningProcessor>(new DeletionLearningProcessor(_simpleParser));
-						}
-						else if (processorName == "forward") {
-							_learningProcessor = boost::shared_ptr<LearningProcessor>(new ForwardLearningProcessor(_simpleParser));
-						}
-						else if (processorName == "jumpforward") {
-							_learningProcessor = boost::shared_ptr<LearningProcessor>(new JumpForwardLearningProcessor(_simpleParser));
-						}
-						else if (processorName == "backward") {
-							_learningProcessor = boost::shared_ptr<LearningProcessor>(new BackwardLearningProcessor(_simpleParser));
-						}
-						else if (processorName == "range") {
-							_learningProcessor = boost::shared_ptr<LearningProcessor>(new RangeLearningProcessor(_simpleParser));
-						}
-						else if (processorName == "cc") {
-							_learningProcessor = boost::shared_ptr<LearningProcessor>(new CCLearningProcessor(_simpleParser));
-						}
-						else if (processorName == "wcc") {
-							_learningProcessor = boost::shared_ptr<LearningProcessor>(new WeightedCCLearningProcessor(_simpleParser));
-						}
-						else
-							throw PluginError("Unrecognized option for --csplearning: " + processorName);
-						it = pluginOptions.erase(it);
-					}
-					else
-						it++;
-				}
-			}
-
-			virtual PluginConverterPtr createConverter(ProgramCtx& ctx) {
-				return _converter;
-			}
-
-			virtual PluginRewriterPtr createRewriter(ProgramCtx& ctx) {
-				return _rewriter;
-			}
-	};
-    
-    
-	CASPPlugin theCaspPlugin;
-    
-  } // namespace casp
-} // namespace dlvhex
-
-IMPLEMENT_PLUGINABIVERSIONFUNCTION
-
-// return plain C type s.t. all compilers and linkers will like this code
-extern "C"
-void * PLUGINIMPORTFUNCTION()
+CASPPlugin::CASPPlugin() :
+_converter(new DefaultConverter()),
+_rewriter(new DefaultRewriter()),
+_simpleParser(new SimpleParser()),
+_learningProcessor(new NoLearningProcessor(_simpleParser))
 {
-	return reinterpret_cast<void*>(& dlvhex::casp::theCaspPlugin);
+	setNameVersion(PACKAGE_TARNAME,CASPPLUGIN_VERSION_MAJOR,CASPPLUGIN_VERSION_MINOR,CASPPLUGIN_VERSION_MICRO);
 }
 
+std::vector<PluginAtomPtr> CASPPlugin::createAtoms(ProgramCtx&) const
+{
+std::vector<PluginAtomPtr> ret;
 
+ret.push_back(PluginAtomPtr(new ConsistencyAtom(_learningProcessor, _simpleParser), PluginPtrDeleter<PluginAtom>()));
+
+return ret;
+}
+void CASPPlugin::printUsage(std::ostream& o) const
+{
+	o << "     --cspenable - enabling casp plugin" << endl;
+	o << "     --headguess - enabling guessing in constraint heads" << endl;
+	o << "     --csplearning=[none,deletion,forward,backward,cc,wcc] " << endl;
+	o << "                   Enable csp learning(none by default)." << endl;
+	o << "                   none        - No learning." << endl;
+	o << "                   deletion    - Deletion filtering learning." << endl;
+	o << "                   forward     - Forward filtering learning." << endl;
+	o << "                   jumpforward - Jump forward filtering learning." << endl;
+	o << "                   backward    - Backward filtering learning." << endl;
+	o << "                   range       - Range filtering learning." << endl;
+	o << "                   cc          - Connected component filtering learning." << endl;
+	o << "                   wcc         - Weighted connected component filtering learning." << endl;
+}
+void CASPPlugin::
+	processOptions(std::list<const char*>& pluginOptions, ProgramCtx& ctx)
+{
+		CASPPlugin::CtxData& ctxdata = ctx.getPluginData<CASPPlugin>();
+		ctxdata.enabled = false;
+		typedef std::list<const char*>::iterator listIterator;
+		listIterator it = pluginOptions.begin();
+		while (it != pluginOptions.end()) {
+			std::string option(*it);
+
+			if (option.find("--cspenable") != std::string::npos) {
+				ctxdata.enabled = true;
+				boost::shared_ptr<PluginConverter> converter(new CaspConverter());
+				boost::shared_ptr<PluginRewriter> rewriter(new CaspRewriter(false));
+				_converter = converter;
+				_rewriter = rewriter;
+
+				it = pluginOptions.erase(it);
+			}
+
+			else if (option.find("--headguess") != std::string::npos) {
+				boost::shared_ptr<PluginRewriter> rewriter(new CaspRewriter(true));
+				_rewriter = rewriter;
+
+				it = pluginOptions.erase(it);
+			}
+
+			else if (option.find("--csplearning=") != std::string::npos) {
+				string processorName = option.substr(std::string("--csplearning=").length());
+				if (processorName == "none") {
+					_learningProcessor = boost::shared_ptr<LearningProcessor>(new NoLearningProcessor(_simpleParser));
+				}
+				else if (processorName == "deletion") {
+					_learningProcessor = boost::shared_ptr<LearningProcessor>(new DeletionLearningProcessor(_simpleParser));
+				}
+				else if (processorName == "forward") {
+					_learningProcessor = boost::shared_ptr<LearningProcessor>(new ForwardLearningProcessor(_simpleParser));
+				}
+				else if (processorName == "jumpforward") {
+					_learningProcessor = boost::shared_ptr<LearningProcessor>(new JumpForwardLearningProcessor(_simpleParser));
+				}
+				else if (processorName == "backward") {
+					_learningProcessor = boost::shared_ptr<LearningProcessor>(new BackwardLearningProcessor(_simpleParser));
+				}
+				else if (processorName == "range") {
+					_learningProcessor = boost::shared_ptr<LearningProcessor>(new RangeLearningProcessor(_simpleParser));
+				}
+				else if (processorName == "cc") {
+					_learningProcessor = boost::shared_ptr<LearningProcessor>(new CCLearningProcessor(_simpleParser));
+				}
+				else if (processorName == "wcc") {
+					_learningProcessor = boost::shared_ptr<LearningProcessor>(new WeightedCCLearningProcessor(_simpleParser));
+				}
+				else
+					throw PluginError("Unrecognized option for --csplearning: " + processorName);
+				it = pluginOptions.erase(it);
+			}
+			else
+				it++;
+		}
+	}
+
+//////////////////////////////////////////////////////////////////////////////////
+class CASPParserModuleSemantics:
+	public HexGrammarSemantics
+{
+public:
+	CASPPlugin::CtxData& ctxdata;
+
+public:
+	CASPParserModuleSemantics(ProgramCtx& ctx):
+		HexGrammarSemantics(ctx),
+		ctxdata(ctx.getPluginData<CASPPlugin>())
+	{
+	}
+
+	// use SemanticActionBase to redirect semantic action call into globally
+	// specializable sem<T> struct space
+	struct caspRule:
+		SemanticActionBase<CASPParserModuleSemantics, ID, caspRule>
+	{
+		caspRule(CASPParserModuleSemantics& mgr):
+			caspRule::base_type(mgr)
+		{
+		}
+	};
+	struct caspElement:
+		SemanticActionBase<CASPParserModuleSemantics, ID, caspElement>
+	{
+		caspElement(CASPParserModuleSemantics& mgr):
+			caspElement::base_type(mgr)
+		{
+		}
+	};
+	struct caspDirective:
+		SemanticActionBase<CASPParserModuleSemantics, ID, caspDirective>
+	{
+			caspDirective(CASPParserModuleSemantics& mgr):
+			caspDirective::base_type(mgr)
+		{
+		}
+	};
+	struct caspOperator:
+		SemanticActionBase<CASPParserModuleSemantics, ID, caspOperator>
+	{
+			caspOperator(CASPParserModuleSemantics& mgr):
+			caspOperator::base_type(mgr)
+		{
+		}
+	};
+};
+
+// create semantic handler for above semantic action
+// (needs to be in globally specializable struct space)
+
+
+template<>
+struct sem<CASPParserModuleSemantics::caspRule>
+{
+
+  void operator()(
+    CASPParserModuleSemantics& mgr,
+    const boost::variant<dlvhex::ID, boost::fusion::vector2<dlvhex::ID, boost::optional<std::vector<dlvhex::ID> > > >& source,
+    ID& target)
+  {
+
+  }
+};
+
+
+template<>
+struct sem<CASPParserModuleSemantics::caspElement>
+{
+  void operator()(
+    CASPParserModuleSemantics& mgr,
+    const boost::fusion::vector3<boost::optional<std::basic_string<char> >, dlvhex::ID,
+    	std::vector < boost::fusion::vector3<dlvhex::ID, boost::optional<std::basic_string<char> >, dlvhex::ID>,
+    	std::allocator<boost::fusion::vector3<dlvhex::ID, boost::optional<std::basic_string<char> >, dlvhex::ID> > > > & source,
+    ID& target)
+  {
+	  //create "expr" atom
+	  ostringstream os;
+	  set<ID> variables;
+	  bool caspVariable=false;
+	  RegistryPtr reg = mgr.ctx.registry();
+
+	  if(!!boost::fusion::at_c<0>(source))
+	  {
+		  caspVariable=true;
+	  }
+
+	  ID leftSide= boost::fusion::at_c<1>(source);
+	  if(!caspVariable)
+	  {
+		  reg->getVariablesInID(leftSide,variables,true);
+	  }
+	  caspVariable=false;
+	  os<<printToString<RawPrinter>(leftSide, reg);
+	  std::vector < boost::fusion::vector3<dlvhex::ID, boost::optional<std::basic_string<char> >, dlvhex::ID>,
+	      	std::allocator<boost::fusion::vector3<dlvhex::ID, boost::optional<std::basic_string<char> >, dlvhex::ID> > > v=boost::fusion::at_c<2>(source);
+	  for(int i=0;i<v.size();i++)
+	  {
+		  boost::fusion::vector3<dlvhex::ID, boost::optional<std::basic_string<char> >, dlvhex::ID> v1=v[i];
+
+		  ID operatorID= boost::fusion::at_c<0>(v1);
+		  os<<printToString<RawPrinter>(operatorID, reg);
+		  if(!!boost::fusion::at_c<1>(v1))
+		  {
+			  caspVariable=true;
+		  }
+		  ID rightSide= boost::fusion::at_c<2>(v1);
+		  os<<printToString<RawPrinter>(rightSide, reg);
+		  if(!caspVariable)
+		  {
+			  reg->getVariablesInID(rightSide,variables,true);
+		  }
+		  caspVariable=false;
+	  }
+
+	  //result atom of caspElement
+	  OrdinaryAtom atom(ID::MAINKIND_ATOM);
+	  string name="expr";
+	  name= name + boost::lexical_cast< std::string >(variables.size());
+	  ID atomName=reg->storeConstantTerm(name);
+	  atom.tuple.push_back(atomName);
+	  ID expression=reg->storeConstantTerm("\""+os.str()+"\"");
+	  atom.tuple.push_back(expression);
+	  for(set<ID>::iterator i=variables.begin();i!=variables.end();i++)
+	  {
+		  atom.tuple.push_back(*i);
+	  }
+	  target=reg->storeOrdinaryAtom(atom);
+	  cout<<printToString<RawPrinter>(target, reg)<<endl;
+
+  }
+};
+template<>
+struct sem<CASPParserModuleSemantics::caspDirective>
+{
+
+  void operator()(
+    CASPParserModuleSemantics& mgr,
+    const boost::fusion::vector3<std::basic_string<char>, dlvhex::ID, dlvhex::ID>& source,
+    ID& target)
+  {
+	  RegistryPtr reg = mgr.ctx.registry();
+	  string directive= boost::fusion::at_c<0>(source);
+	  if(directive!="domain" && directive!="maximize" && directive!="minimize")
+	  {
+		  assert(false);
+		  return ;
+	  }
+	  ID directiveID=reg->storeConstantTerm(directive);
+	  ID lowerID =boost::fusion::at_c<1>(source);
+	  ID upperID =boost::fusion::at_c<2>(source);
+	  OrdinaryAtom atom(ID::MAINKIND_ATOM);
+	  atom.tuple.push_back(directiveID);
+	  atom.tuple.push_back(lowerID);
+	  atom.tuple.push_back(upperID);
+	  target=reg->storeOrdinaryAtom(atom);
+
+  }
+};
+template<>
+struct sem<CASPParserModuleSemantics::caspOperator>
+{
+	void operator()(
+			CASPParserModuleSemantics& mgr,
+			const std::basic_string< char >& source, dlvhex::ID& target)
+	{
+		RegistryPtr reg = mgr.ctx.registry();
+		target=dlvhex::ID::termFromBuiltinString(source);
+	}
+};
+
+namespace {
+  template<typename Iterator, typename Skipper>
+  struct CASPParserModuleGrammarBase:
+  // we derive from the original hex grammar
+  	// -> we can reuse its rules
+  public HexGrammarBase<Iterator, Skipper>
+  {
+  	typedef HexGrammarBase<Iterator, Skipper> Base;
+  		CASPParserModuleSemantics& sem;
+  		CASPParserModuleGrammarBase(CASPParserModuleSemantics& sem):
+  		Base(sem),
+  		sem(sem)
+  	{
+  		typedef CASPParserModuleSemantics Sem;
+  			caspRule
+  		= (caspDirective | (Base::headAtom >> -(qi::lit("#") > (( caspElement | Base::bodyLiteral ) % qi::char_('§')) ) >> qi::lit('.') )) [ Sem::caspRule(sem) ];
+  			caspElement
+  		= (
+  				-qi::string("$") >> Base::term >> +( caspOperator >> -qi::string("$") >> Base::term )>> qi::eps
+
+  		) [ Sem::caspElement(sem) ];
+  			caspDirective
+  		= (
+//  				$domain(0,100)
+  				qi::lit("$")>>Base::cident>>qi::lit("(")>Base::term>qi::lit("..")>Base::term>>qi::lit(").")
+  		)[ Sem::caspDirective(sem) ];
+  			caspOperator
+  		=(
+  				qi::lit("$")>>(qi::string("==")|qi::string("+")| qi::string("-")|qi::string("*")|qi::string("/")|qi::string("%")| qi::string("<")|qi::string(">")|qi::string("<=")|qi::string("=>"))
+  			)[Sem::caspOperator(sem)];
+  #ifdef BOOST_SPIRIT_DEBUG
+  		 BOOST_SPIRIT_DEBUG_NODE(caspElement);
+  #endif
+  	}
+  	qi::rule<Iterator, ID(), Skipper> caspRule;
+  	qi::rule<Iterator, ID(), Skipper> caspElement;
+  	qi::rule<Iterator, ID(), Skipper> caspDirective;
+  	qi::rule<Iterator, ID(), Skipper> caspOperator;
+  };
+
+struct CASPParserModuleGrammar:
+	CASPParserModuleGrammarBase<HexParserIterator, HexParserSkipper>,
+	// required for interface
+	// note: HexParserModuleGrammar =
+	//       boost::spirit::qi::grammar<HexParserIterator, HexParserSkipper>
+	HexParserModuleGrammar
+{
+		typedef CASPParserModuleGrammarBase<HexParserIterator, HexParserSkipper> GrammarBase;
+		typedef HexParserModuleGrammar QiBase;
+			CASPParserModuleGrammar(CASPParserModuleSemantics& sem):
+			GrammarBase(sem),
+			QiBase(GrammarBase::caspRule)
+		{
+		}
+};
+typedef boost::shared_ptr<CASPParserModuleGrammar>
+		CASPParserModuleGrammarPtr;
+
+// moduletype = HexParserModule::TOPLEVEL
+template<enum HexParserModule::Type moduletype>
+class CASPParserModule:
+	public HexParserModule
+{
+public:
+	// the semantics manager is stored/owned by this module!
+	CASPParserModuleSemantics sem;
+	// we also keep a shared ptr to the grammar module here
+	CASPParserModuleGrammarPtr grammarModule;
+
+	CASPParserModule(ProgramCtx& ctx):
+		HexParserModule(moduletype),
+		sem(ctx)
+	{
+		LOG(INFO,"constructed CASPParserModule");
+	}
+
+	virtual HexParserModuleGrammarPtr createGrammarModule()
+	{
+		assert(!grammarModule && "for simplicity (storing only one grammarModule pointer) we currently assume this will be called only once .. should be no problem to extend");
+		grammarModule.reset(new CASPParserModuleGrammar(sem));
+		LOG(INFO,"created CASPParserModuleGrammar");
+		return grammarModule;
+	}
+};
+
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+std::vector<HexParserModulePtr>	CASPPlugin::createParserModules(ProgramCtx& ctx)
+{
+	DBGLOG(DBG,"CASPPlugin::createParserModules()");
+	std::vector<HexParserModulePtr> ret;
+
+	CASPPlugin::CtxData& ctxdata = ctx.getPluginData<CASPPlugin>();
+	if( ctxdata.enabled )
+	{
+		ret.push_back(HexParserModulePtr(
+				new CASPParserModule<HexParserModule::TOPLEVEL>(ctx)));
+	}
+	return ret;
+}
+
+DLVHEX_NAMESPACE_END

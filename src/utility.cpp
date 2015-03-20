@@ -10,6 +10,7 @@
 
 using namespace std;
 
+
 /**
  * @brief This helper method is used to check whether string is a variable
  */

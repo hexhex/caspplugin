@@ -41,7 +41,6 @@ AC_PROG_LIBTOOL
 # check for gecode library
 #
 
-
 # check for dlvhex, sets various variables
 DLVHEX_REQUIRE([2.0.0])
 
@@ -64,7 +63,7 @@ if test "x$plugindir" == "x"; then
 	AC_MSG_ERROR([Cannot determine nonempty value for plugindir!])
 fi
 
-CPPFLAGS="$CPPFLAGS -I/usr/local/include/gecode/include"
+CPPFLAGS="$CPPFLAGS -I/usr/include/gecode"
 LDFLAGS="$LDFLAGS -L/usr/local/lib -R/usr/local/lib -lgecodeflatzinc -lgecodedriver -lgecodesearch -lgecodeminimodel -lgecodeset -lgecodeint -lgecodekernel -lgecodesupport"
 
 #
