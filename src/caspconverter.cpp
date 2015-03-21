@@ -211,7 +211,10 @@ void CaspConverter::convert(istream& i, ostream& o) {
 	}
 
 	for (int i = 0; i < sumPredicates.size(); i++)
+	{
 		o << "," << sumPredicates[i];
+		cout<<"," << sumPredicates[i];
+	}
 
 	for (int i = 0; i < maxSumPredicates - sumPredicates.size(); i++)
 		o << "," << "dummy_sum_predicate" << i;

@@ -1,6 +1,6 @@
 #include "casp/caspplugin.h"
 #include <dlvhex2/Printer.h>
-#include <boost/lexical_cast.hpp>
+
 DLVHEX_NAMESPACE_BEGIN
 
 using namespace dlvhex::casp;
@@ -107,6 +107,7 @@ class CASPParserModuleSemantics:
 {
 public:
 	CASPPlugin::CtxData& ctxdata;
+	vector<string> sumPredicates;
 
 public:
 	CASPParserModuleSemantics(ProgramCtx& ctx):
@@ -159,6 +160,14 @@ public:
 		}
 	};
 
+	struct caspSum:
+		SemanticActionBase<CASPParserModuleSemantics, string, caspSum>
+	{
+			caspSum(CASPParserModuleSemantics& mgr):
+				caspSum::base_type(mgr)
+			{
+			}
+	};
 };
 
 // create semantic handler for above semantic action
@@ -260,14 +269,13 @@ struct sem<CASPParserModuleSemantics::caspRule>
 template<>
 struct sem<CASPParserModuleSemantics::caspElement>
 {
-
 	void operator()(
-			CASPParserModuleSemantics& mgr,
-			const boost::fusion::vector2 < boost::variant<dlvhex::ID, std::basic_string<char> >,
-			std::vector<boost::fusion::vector2<dlvhex::ID, boost::variant<dlvhex::ID, std::basic_string<char> > >,
-			std::allocator<boost::fusion::vector2<dlvhex::ID, boost::variant<dlvhex::ID, std::basic_string<char> > > > > > & source,
-			ID& target)
-	{
+				CASPParserModuleSemantics& mgr,
+				const boost::fusion::vector2 < boost::variant<dlvhex::ID, std::basic_string<char> >,
+				std::vector<boost::fusion::vector2<dlvhex::ID, boost::variant<dlvhex::ID, std::basic_string<char> > >,
+				std::allocator<boost::fusion::vector2<dlvhex::ID, boost::variant<dlvhex::ID, std::basic_string<char> > > > > > & source,
+				ID& target)
+		{
 			  ostringstream os;
 			  set<ID> variables;
 			  RegistryPtr reg = mgr.ctx.registry();
@@ -313,7 +321,6 @@ struct sem<CASPParserModuleSemantics::caspElement>
 				  atom.tuple.push_back(*i);
 			  }
 			  target=reg->storeOrdinaryAtom(atom);
-//			  cout<<printToString<RawPrinter>(target, reg)<<endl;
 	}
 
 	bool getVariable(RegistryPtr& reg,const boost::variant<dlvhex::ID, std::basic_string<char> >& variant,ID& toReturn)
@@ -334,15 +341,48 @@ struct sem<CASPParserModuleSemantics::caspElement>
 template<>
 struct sem<CASPParserModuleSemantics::caspVariable>
 {
+
 	void operator()(
 			CASPParserModuleSemantics& mgr,
-			const boost::fusion::vector2<char, std::vector<char, std::allocator<char> > > &  source,
+			const boost::variant<std::basic_string<char>, boost::fusion::vector2<char, std::vector<char, std::allocator<char> > > > & source,
 			string& target)
 	{
-		target=boost::fusion::at_c<0>(source);
-		std::vector<char, std::allocator<char> > v=boost::fusion::at_c<1>(source);
-		for(int i=0;i<v.size();i++)
-			target+=v[i];
+		if(const string* variable = boost::get< string >( &source ))
+		{
+			target=*variable;
+		}
+		else
+		{
+			const boost::fusion::vector2<char, std::vector<char, std::allocator<char> > >& v=*(boost::get< boost::fusion::vector2<char, std::vector<char, std::allocator<char> > > >( &source ));
+			target=boost::fusion::at_c<0>(v);
+			std::vector<char, std::allocator<char> > chars=boost::fusion::at_c<1>(v);
+			for(int i=0;i<chars.size();i++)
+				target+=chars[i];
+		}
+	}
+};
+
+template<>
+struct sem<CASPParserModuleSemantics::caspSum>
+{
+
+	void operator()(
+			CASPParserModuleSemantics& mgr,
+			const boost::fusion::vector2<dlvhex::ID, dlvhex::ID>& source, std::basic_string<char>& target)
+	{
+		// transform sum(p,2) to sum_p_2 for proper parsing
+		RegistryPtr reg=mgr.ctx.registry();
+		ID predicateID=boost::fusion::at_c<0>(source);
+		assert(predicateID.isConstantTerm());
+
+		ID integerID=boost::fusion::at_c<1>(source);
+		assert(integerID.isIntegerTerm());
+
+		ostringstream os;
+		os<<printToString<RawPrinter>(integerID,reg);
+		string predicate=reg->getTermStringByID(predicateID);
+		mgr.sumPredicates.push_back(predicate);
+		target="sum_"+predicate+"_"+os.str();
 	}
 };
 template<>
@@ -351,26 +391,51 @@ struct sem<CASPParserModuleSemantics::caspDirective>
 
   void operator()(
     CASPParserModuleSemantics& mgr,
-    const boost::fusion::vector3<std::basic_string<char>, dlvhex::ID, dlvhex::ID>& source,
+    const boost::fusion::vector3<std::basic_string<char>, dlvhex::ID, boost::optional<dlvhex::ID> >& source,
     ID& target)
   {
 	  RegistryPtr reg = mgr.ctx.registry();
 	  string directive= boost::fusion::at_c<0>(source);
-	  if(directive!="domain" && directive!="maximize" && directive!="minimize")
-	  {
-		  assert(false);
-	  }
-	  ID directiveID=reg->storeConstantTerm(directive);
-	  ID lowerID =boost::fusion::at_c<1>(source);
-	  ID upperID =boost::fusion::at_c<2>(source);
-	  OrdinaryAtom atom(ID::MAINKIND_ATOM);
-	  atom.tuple.push_back(directiveID);
-	  atom.tuple.push_back(lowerID);
-	  atom.tuple.push_back(upperID);
-	  target=reg->storeOrdinaryAtom(atom);
 
+	  OrdinaryAtom atom(ID::MAINKIND_ATOM);
+	  assert(directive=="domain" || directive=="maximize" || directive=="minimize");
+	  if(directive=="domain")
+	  {
+		  ID directiveID=reg->storeConstantTerm(directive);
+		  ID domainLowerBoudID =boost::fusion::at_c<1>(source);
+
+		  //no upper bound
+		  bool noDomainUpperBound=!!boost::fusion::at_c<2>(source);
+		  assert(noDomainUpperBound);
+
+		  ID domainUpperBoudID =boost::fusion::at_c<2>(source).get();
+
+		  //domain must to have lower and upper bound as Integer
+		  assert(domainLowerBoudID.isIntegerTerm() && domainUpperBoudID.isIntegerTerm());
+
+		  atom.tuple.push_back(directiveID);
+		  atom.tuple.push_back(domainLowerBoudID);
+		  atom.tuple.push_back(domainUpperBoudID);
+	  }
+	  else
+	  {
+		  ID directiveID=reg->storeConstantTerm(directive);
+		  ID variableGlobalID =boost::fusion::at_c<1>(source);
+
+		  //no two argument
+  		  bool oneArgument=!!boost::fusion::at_c<2>(source);
+  		  assert(!oneArgument);
+
+  		  // Must to be a variable
+  		  assert(variableGlobalID.isVariableTerm());
+
+		  atom.tuple.push_back(directiveID);
+  		  atom.tuple.push_back(reg->storeConstantTerm("\""+reg->getTermStringByID(variableGlobalID)+"\""));
+	  }
+	  target=reg->storeOrdinaryAtom(atom);
   }
 };
+
 template<>
 struct sem<CASPParserModuleSemantics::caspOperator>
 {
@@ -381,6 +446,7 @@ struct sem<CASPParserModuleSemantics::caspOperator>
 		RegistryPtr reg = mgr.ctx.registry();
 		target=dlvhex::ID::termFromBuiltinString(source);
 	}
+
 };
 
 namespace {
@@ -407,13 +473,18 @@ namespace {
 
   			caspVariable
   		= (
-  				 qi::lit("$") >> qi::lexeme[ ascii::upper >> *(ascii::alnum | qi::char_('_')) ]
+			 qi::lit("$") >> (caspSum | qi::lexeme[ ascii::upper >> *(ascii::alnum | qi::char_('_')) ])
+
 		)[Sem::caspVariable(sem)];
+
+  			caspSum
+  		=(
+					 qi::lit("sum(") >> Base::term >> qi::lit(",") >> Base::term >> qi::lit(")")
+  		)[Sem::caspSum(sem)];
 
   			caspDirective
   		= (
-//  				$domain(0,100)
-  				qi::lit("$")>>Base::cident>>qi::lit("(")>Base::term>qi::lit("..")>Base::term>>qi::lit(").")
+  				qi::lit("$")>>Base::cident>>qi::lit("(")>Base::term>-(qi::lit("..")>Base::term)>>qi::lit(").")
   		)[ Sem::caspDirective(sem) ];
   			caspOperator
   		=(
@@ -428,6 +499,7 @@ namespace {
   	qi::rule<Iterator, ID(), Skipper> caspDirective;
   	qi::rule<Iterator, ID(), Skipper> caspOperator;
   	qi::rule<Iterator, string(), Skipper> caspVariable;
+  	qi::rule<Iterator, string(), Skipper> caspSum;
   };
 
 struct CASPParserModuleGrammar:

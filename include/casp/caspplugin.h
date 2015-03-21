@@ -30,6 +30,7 @@
 #include <boost/tokenizer.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/lexical_cast.hpp>
 
 #define NDEBUG
 
@@ -100,11 +101,11 @@ public:
 			if(!_idSaved){
 				StoreID(registry);
 			}
-			if (atom.tuple[0]==_exprID) {
+			if (_exprID.find(atom.tuple[0])!=_exprID.end()) {
 				Term value = registry.terms.getByID(atom.tuple[1]);
 				expr = value.symbol;
 			}
-			else if (atom.tuple[0]==_notExprID) {
+			else if (_notExprID.find(atom.tuple[0])!=_notExprID.end()) {
 				Term value = registry.terms.getByID(atom.tuple[1]);
 				expr = replaceInvertibleOperator(value.symbol);
 			}
@@ -189,8 +190,8 @@ public:
 private:
 	boost::shared_ptr<LearningProcessor> _learningProcessor;
 	boost::shared_ptr<SimpleParser> _simpleParser;
-	ID _exprID;
-	ID _notExprID;
+	set<ID> _exprID;
+	set<ID> _notExprID;
 	ID _domID;
 	ID _maxID;
 	ID _minID;
@@ -199,8 +200,11 @@ private:
 	// store constraint atom id
 	void StoreID( dlvhex::Registry& registry)
 	{
-		_exprID=registry.storeConstantTerm("expr1");
-		_notExprID=registry.storeConstantTerm("not_expr1");
+		for(int i=0;i<11;i++)
+		{
+			_exprID.insert(registry.storeConstantTerm("expr"+ boost::lexical_cast< std::string >(i)));
+			_notExprID.insert(registry.storeConstantTerm("not_expr"+boost::lexical_cast< std::string >(i)));
+		}
 		_domID=registry.storeConstantTerm("domain");
 		_maxID=registry.storeConstantTerm("maximize");
 		_minID=registry.storeConstantTerm("minimize");
