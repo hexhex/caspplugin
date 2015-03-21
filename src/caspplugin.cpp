@@ -174,6 +174,85 @@ struct sem<CASPParserModuleSemantics::caspRule>
     const boost::variant<dlvhex::ID, boost::fusion::vector2<dlvhex::ID, boost::optional<std::vector<dlvhex::ID> > > >& source,
     ID& target)
   {
+	  Tuple  bodyWithoutCasp;
+	  Tuple bodyCasp;
+
+	  RegistryPtr reg=mgr.ctx.registry();
+	  Rule rule(ID::MAINKIND_RULE | ID::SUBKIND_RULE_REGULAR);
+	  if(const ID* idDirective = boost::get< ID >( &source ))
+	  {
+		  rule.head.push_back(*idDirective);
+	  }
+	  else
+	  {
+		  const boost::fusion::vector2<dlvhex::ID, boost::optional<std::vector<dlvhex::ID> > > idAtomRule=*(boost::get< boost::fusion::vector2<dlvhex::ID, boost::optional<std::vector<dlvhex::ID> > > > ( &source ));
+		  rule.head.push_back(boost::fusion::at_c<0>(idAtomRule));
+		  if(!!boost::fusion::at_c<1>(idAtomRule))
+		  {
+			  std::vector<dlvhex::ID> idBody=boost::fusion::at_c<1>(idAtomRule).get();
+			  BOOST_FOREACH(const ID& id, idBody)
+			  {
+				  rule.body.push_back(id);
+				  if(id.isOrdinaryAtom())
+				  {
+					  OrdinaryAtom atom=reg->lookupOrdinaryAtom(id);
+					  if(boost::starts_with(atom.text, "expr"))
+					  {
+						  bodyCasp.push_back(id);
+					  }
+					  else
+					  {
+						  bodyWithoutCasp.push_back(id);
+					  }
+				  }
+				  else
+				  {
+					  bodyWithoutCasp.push_back(id);
+				  }
+			  }
+		  }
+	  }
+	  ID ruleID=reg->storeRule(rule);
+	  target=ruleID;
+	  cout<<printToString<RawPrinter>(ruleID,reg)<<endl;
+
+	  //create guessing rule
+	  BOOST_FOREACH(const ID& id, bodyCasp)
+	  {
+		  Rule guessingRule(ID::MAINKIND_RULE | ID::SUBKIND_RULE_REGULAR | ID::PROPERTY_RULE_DISJ);
+		  guessingRule.body.insert(guessingRule.body.end(),bodyWithoutCasp.begin(),bodyWithoutCasp.end());
+
+		  if (id.isLiteral()) {
+			  guessingRule.head.push_back(ID::posLiteralFromAtom(ID::atomFromLiteral(id)));
+		  }
+		  else {
+			  guessingRule.head.push_back(ID::posLiteralFromAtom(id));
+		  }
+
+		  OrdinaryAtom notCaspAtom = reg->lookupOrdinaryAtom(id);
+		  Term t = reg->terms.getByID(notCaspAtom.tuple[0]);
+
+		  string negatedSymbol = "not_" + t.symbol;
+		  ID negatedId = reg->terms.getIDByString(negatedSymbol);
+		  if (negatedId == ID_FAIL) {
+			  t.symbol = negatedSymbol;
+			  notCaspAtom.tuple[0] = reg->terms.storeAndGetID(t);
+		  } else {
+			  notCaspAtom.tuple[0] = negatedId;
+		  }
+
+		  ID hid = reg->storeOrdinaryAtom(notCaspAtom);
+
+		  guessingRule.head.push_back(hid);
+
+		  ID guessingRuleID = reg->storeRule(guessingRule);
+		  if ( mgr.mlpMode == 0 ) {
+			  mgr.ctx.idb.push_back(guessingRuleID);
+		  }else{
+			  mgr.ctx.idbList.back().push_back(guessingRuleID);
+		  }
+		  cout<<printToString<RawPrinter>(guessingRuleID,reg)<<endl;
+	  }
   }
 };
 
@@ -212,7 +291,7 @@ struct sem<CASPParserModuleSemantics::caspElement>
 
 				  ID operatorID= boost::fusion::at_c<0>(v1);
 				  os<<printToString<RawPrinter>(operatorID, reg);
-				  caspVariable=getVariable(reg,boost::fusion::at_c<0>(source),variable);
+				  caspVariable=getVariable(reg,boost::fusion::at_c<1>(v1),variable);
 				  os<<printToString<RawPrinter>(variable, reg);
 				  if(!caspVariable)
 				  {
@@ -234,7 +313,7 @@ struct sem<CASPParserModuleSemantics::caspElement>
 				  atom.tuple.push_back(*i);
 			  }
 			  target=reg->storeOrdinaryAtom(atom);
-			  cout<<printToString<RawPrinter>(target, reg)<<endl;
+//			  cout<<printToString<RawPrinter>(target, reg)<<endl;
 	}
 
 	bool getVariable(RegistryPtr& reg,const boost::variant<dlvhex::ID, std::basic_string<char> >& variant,ID& toReturn)
@@ -280,7 +359,6 @@ struct sem<CASPParserModuleSemantics::caspDirective>
 	  if(directive!="domain" && directive!="maximize" && directive!="minimize")
 	  {
 		  assert(false);
-		  return ;
 	  }
 	  ID directiveID=reg->storeConstantTerm(directive);
 	  ID lowerID =boost::fusion::at_c<1>(source);

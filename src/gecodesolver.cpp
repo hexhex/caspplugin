@@ -17,25 +17,14 @@
 using namespace Gecode;
 using namespace std;
 
-GecodeSolver::GecodeSolver(vector<string> sumData, string domain, string globalConstraintName, string globalConstraintValue,
+GecodeSolver::GecodeSolver(vector<string> sumData, int domainMinValue,int domainMaxValue, string globalConstraintName, string globalConstraintValue,
 		boost::shared_ptr<SimpleParser> simpleParser) :
 		_simpleParser(simpleParser) {
 
-	if (domain == "")
-		throw dlvhex::PluginError("No domain specified");
-
 	_sumData = sumData;
 
-	typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
-	boost::char_separator<char> sep("\".");
-	tokenizer tokens(domain, sep);
-	tokenizer::iterator tok_iter = tokens.begin();
-
-	string stringMinValue = *tok_iter++;
-	string stringMaxValue = *tok_iter++;
-
-	_minValue = atoi(stringMinValue.c_str());
-	_maxValue = atoi(stringMaxValue.c_str());
+	_minValue = domainMinValue;
+	_maxValue = domainMaxValue;
 
 	if (globalConstraintName != "") {
 		ParseTree* tree;

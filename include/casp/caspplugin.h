@@ -78,7 +78,9 @@ public:
 
 		std::vector<std::string> expressions;
 		std::vector<std::string> sumData;
-		std::string domain = "";
+		int domainMaxValue;
+		int domainMinValue;
+		bool existingDomain=false;
 		std::string globalConstraintName = "";
 		std::string globalConstraintValue = "";
 
@@ -107,7 +109,10 @@ public:
 				expr = replaceInvertibleOperator(value.symbol);
 			}
 			else if (atom.tuple[0]==_domID) {
-				domain = removeQuotes(registry.terms.getByID(atom.tuple[1]).symbol);
+				existingDomain=true;
+				domainMinValue=atoi(registry.terms.getByID(atom.tuple[1]).symbol.c_str());
+				domainMaxValue=atoi(registry.terms.getByID(atom.tuple[2]).symbol.c_str());
+				cout<<"domain "<<domainMinValue<<" "<<domainMaxValue<<endl;
 			}
 			else if (atom.tuple[0]==_maxID ||atom.tuple[0]==_minID) {
 				globalConstraintName = name.symbol;
@@ -122,9 +127,9 @@ public:
 				// '}' - ')'
 				// ';' - ','
 				// This is due to the fact that hex parser splits improperly them inside of string term
-				boost::replace_all(expr, "{", "(");
-				boost::replace_all(expr, "}", ")");
-				boost::replace_all(expr, ";", ",");
+//				boost::replace_all(expr, "{", "(");
+//				boost::replace_all(expr, "}", ")");
+//				boost::replace_all(expr, ";", ",");
 				// Replace all ASP variables with their actual values.
 				int variableIndex = 2;
 
@@ -159,8 +164,11 @@ public:
 			}
 		}
 
+		if(!existingDomain)
+			throw dlvhex::PluginError("No domain specified");
+
 		// Call gecode solver
-		GecodeSolver* solver = new GecodeSolver(sumData, domain, globalConstraintName, globalConstraintValue, _simpleParser);
+		GecodeSolver* solver = new GecodeSolver(sumData,domainMinValue, domainMaxValue, globalConstraintName, globalConstraintValue, _simpleParser);
 		solver->propagate(expressions);
 
 		Gecode::Search::Options opt;
@@ -172,7 +180,7 @@ public:
 			answer.get().push_back(out);
 		}
 		else if (nogoods != 0){ // otherwise we need to learn IIS from it
-			GecodeSolver* otherSolver = new GecodeSolver(sumData, domain, globalConstraintName, globalConstraintValue, _simpleParser);
+			GecodeSolver* otherSolver = new GecodeSolver(sumData, domainMinValue,domainMaxValue, globalConstraintName, globalConstraintValue, _simpleParser);
 			_learningProcessor->learnNogoods(nogoods, expressions, atomIds, otherSolver);
 			delete otherSolver;
 		}
@@ -261,9 +269,9 @@ public:
 	// this parser also stores the query information into the plugin
 	virtual std::vector<HexParserModulePtr>	createParserModules(ProgramCtx& ctx);
 
-	virtual PluginRewriterPtr createRewriter(ProgramCtx& ctx) {
-		return _rewriter;
-	}
+//	virtual PluginRewriterPtr createRewriter(ProgramCtx& ctx) {
+//		return _rewriter;
+//	}
 };
 
 

@@ -17,7 +17,7 @@ using namespace std;
 class GecodeSolver: public Gecode::MaximizeSpace {
 public:
 	/// Actual model
-	GecodeSolver(vector<string> sumData, string domain, string globalConstraintName, string globalConstraintValue,
+	GecodeSolver(vector<string> sumData, int domainMaxValue,int domainMinValue, string globalConstraintName, string globalConstraintValue,
 			boost::shared_ptr<SimpleParser> simpleParser);
 
 	GecodeSolver(bool share, GecodeSolver& s) :
