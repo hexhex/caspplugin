@@ -101,7 +101,7 @@ void CASPPlugin::
 		}
 	}
 
-//////////////////////////////////////////////////////////////////////////////////
+
 class CASPParserModuleSemantics:
 	public HexGrammarSemantics
 {
@@ -168,6 +168,43 @@ public:
 			{
 			}
 	};
+
+	~CASPParserModuleSemantics()
+	{
+		createCaspExternalAtom();
+	}
+
+
+	void createCaspExternalAtom()
+	{
+		RegistryPtr reg=ctx.registry();
+
+		Rule externalConstraint(ID::MAINKIND_RULE |ID::SUBKIND_RULE_CONSTRAINT |ID::PROPERTY_RULE_EXTATOMS);
+		ExternalAtom ext(ID::MAINKIND_ATOM | ID::SUBKIND_ATOM_EXTERNAL | ID::NAF_MASK);
+
+		ext.predicate=reg->storeConstantTerm("casp");
+		ext.inputs.push_back(reg->storeConstantTerm("domain"));
+		ext.inputs.push_back(reg->storeConstantTerm("maximize"));
+		ext.inputs.push_back(reg->storeConstantTerm("minimize"));
+
+		for(int i=0;i<11;i++)
+		{
+			ext.inputs.push_back(reg->storeConstantTerm("expr"+boost::lexical_cast<string>(i)));
+			ext.inputs.push_back(reg->storeConstantTerm("not_expr"+boost::lexical_cast<string>(i)));
+		}
+		for(int i=0;i<sumPredicates.size();i++)
+		{
+			ext.inputs.push_back(reg->storeConstantTerm(sumPredicates[i]));
+		}
+		for(int i=0;i<15-sumPredicates.size();i++)
+		{
+			ext.inputs.push_back(reg->storeConstantTerm("dummy_sum_predicate"+boost::lexical_cast<string>(i)));
+		}
+		externalConstraint.body.push_back( ID::nafLiteralFromAtom(reg->eatoms.storeAndGetID(ext)));
+		ID extRuleID=reg->storeRule(externalConstraint);
+		ctx.idb.push_back(extRuleID);
+//		cout<<printToString<RawPrinter>(extRuleID,reg)<<endl<<endl<<endl;
+	}
 };
 
 // create semantic handler for above semantic action
@@ -177,25 +214,41 @@ public:
 template<>
 struct sem<CASPParserModuleSemantics::caspRule>
 {
-
   void operator()(
     CASPParserModuleSemantics& mgr,
-    const boost::variant<dlvhex::ID, boost::fusion::vector2<dlvhex::ID, boost::optional<std::vector<dlvhex::ID> > > >& source,
+    const boost::variant<dlvhex::ID, boost::fusion::vector2<boost::optional<std::vector<dlvhex::ID> >,
+    boost::optional<std::vector<dlvhex::ID> > > >&  source,
     ID& target)
   {
 	  Tuple  bodyWithoutCasp;
 	  Tuple bodyCasp;
 
 	  RegistryPtr reg=mgr.ctx.registry();
-	  Rule rule(ID::MAINKIND_RULE | ID::SUBKIND_RULE_REGULAR);
+	  Rule rule(ID::MAINKIND_RULE );
 	  if(const ID* idDirective = boost::get< ID >( &source ))
 	  {
+		  rule.kind |= ID::SUBKIND_RULE_REGULAR;
 		  rule.head.push_back(*idDirective);
 	  }
 	  else
 	  {
-		  const boost::fusion::vector2<dlvhex::ID, boost::optional<std::vector<dlvhex::ID> > > idAtomRule=*(boost::get< boost::fusion::vector2<dlvhex::ID, boost::optional<std::vector<dlvhex::ID> > > > ( &source ));
-		  rule.head.push_back(boost::fusion::at_c<0>(idAtomRule));
+		  const boost::fusion::vector2<boost::optional<std::vector<dlvhex::ID> >, boost::optional<std::vector<dlvhex::ID> > > idAtomRule=*(boost::get< boost::fusion::vector2<boost::optional< std::vector<dlvhex::ID> >, boost::optional<std::vector<dlvhex::ID> > > > ( &source ));
+		  if(!!boost::fusion::at_c<0>(idAtomRule))
+		  {
+			  vector<ID> head =boost::fusion::at_c<0>(idAtomRule).get();
+			  rule.kind |= ID::SUBKIND_RULE_REGULAR ;
+			  if(head.size()>1)
+			  {
+				  //guessing rule
+				  rule.kind |= ID::PROPERTY_RULE_DISJ;
+			  }
+
+			  rule.head.insert(rule.head.end(),head.begin(),head.end());
+		  }
+		  else if(!!boost::fusion::at_c<1>(idAtomRule))
+		  {
+			  rule.kind |= ID::SUBKIND_RULE_CONSTRAINT;
+		  }
 		  if(!!boost::fusion::at_c<1>(idAtomRule))
 		  {
 			  std::vector<dlvhex::ID> idBody=boost::fusion::at_c<1>(idAtomRule).get();
@@ -221,6 +274,7 @@ struct sem<CASPParserModuleSemantics::caspRule>
 			  }
 		  }
 	  }
+	  //FIXME example 4 ignoring ID ID(0x30000000,  10 rule regular)
 	  ID ruleID=reg->storeRule(rule);
 	  target=ruleID;
 	  cout<<printToString<RawPrinter>(ruleID,reg)<<endl;
@@ -255,11 +309,7 @@ struct sem<CASPParserModuleSemantics::caspRule>
 		  guessingRule.head.push_back(hid);
 
 		  ID guessingRuleID = reg->storeRule(guessingRule);
-		  if ( mgr.mlpMode == 0 ) {
-			  mgr.ctx.idb.push_back(guessingRuleID);
-		  }else{
-			  mgr.ctx.idbList.back().push_back(guessingRuleID);
-		  }
+		  mgr.ctx.idb.push_back(guessingRuleID);
 		  cout<<printToString<RawPrinter>(guessingRuleID,reg)<<endl;
 	  }
   }
@@ -277,7 +327,8 @@ struct sem<CASPParserModuleSemantics::caspElement>
 				ID& target)
 		{
 			  ostringstream os;
-			  set<ID> variables;
+			  //variables in expr
+			  vector<ID> variables;
 			  RegistryPtr reg = mgr.ctx.registry();
 			  bool caspVariable=false;
 
@@ -285,9 +336,11 @@ struct sem<CASPParserModuleSemantics::caspElement>
 
 			  caspVariable=getVariable(reg,boost::fusion::at_c<0>(source),variable);
 
+			  //check if not is $z
 			  if(!caspVariable)
 			  {
-				  reg->getVariablesInID(variable,variables,true);
+				  set<ID> var=reg->getVariablesInID(variable,true);
+				  variables.insert(variables.end(),var.begin(),var.end());
 			  }
 			  caspVariable=false;
 			  os<<printToString<RawPrinter>(variable, reg);
@@ -303,7 +356,8 @@ struct sem<CASPParserModuleSemantics::caspElement>
 				  os<<printToString<RawPrinter>(variable, reg);
 				  if(!caspVariable)
 				  {
-					  reg->getVariablesInID(variable,variables,true);
+					  set<ID> var=reg->getVariablesInID(variable,true);
+					  variables.insert(variables.end(),var.begin(),var.end());
 				  }
 				  caspVariable=false;
 			  }
@@ -316,13 +370,11 @@ struct sem<CASPParserModuleSemantics::caspElement>
 			  atom.tuple.push_back(atomName);
 			  ID expression=reg->storeConstantTerm("\""+os.str()+"\"");
 			  atom.tuple.push_back(expression);
-			  for(set<ID>::iterator i=variables.begin();i!=variables.end();i++)
-			  {
-				  atom.tuple.push_back(*i);
-			  }
+			  atom.tuple.insert(atom.tuple.end(),variables.begin(),variables.end());
 			  target=reg->storeOrdinaryAtom(atom);
 	}
 
+	//generate constant term from string or return ID of term
 	bool getVariable(RegistryPtr& reg,const boost::variant<dlvhex::ID, std::basic_string<char> >& variant,ID& toReturn)
 	{
 		 if(const std::basic_string<char>* variable = boost::get< std::basic_string<char> >( &variant ))
@@ -368,13 +420,21 @@ struct sem<CASPParserModuleSemantics::caspSum>
 
 	void operator()(
 			CASPParserModuleSemantics& mgr,
-			const boost::fusion::vector2<dlvhex::ID, dlvhex::ID>& source, std::basic_string<char>& target)
+			const boost::fusion::vector2<boost::fusion::vector2<char, std::vector<char, std::allocator<char> > >, dlvhex::ID>& source, std::basic_string<char>& target)
 	{
 		// transform sum(p,2) to sum_p_2 for proper parsing
 		RegistryPtr reg=mgr.ctx.registry();
-		ID predicateID=boost::fusion::at_c<0>(source);
-		assert(predicateID.isConstantTerm());
 
+		//read predicate name
+		const boost::fusion::vector2<char, std::vector<char, std::allocator<char> > >& v=boost::fusion::at_c<0>(source);
+		string predicateName;
+		predicateName+=boost::fusion::at_c<0>(v);
+		std::vector<char, std::allocator<char> > chars=boost::fusion::at_c<1>(v);
+		for(int i=0;i<chars.size();i++)
+			predicateName+=chars[i];
+		ID predicateID=reg->storeConstantTerm(predicateName);
+
+		//read i-th(1-based) argument
 		ID integerID=boost::fusion::at_c<1>(source);
 		assert(integerID.isIntegerTerm());
 
@@ -426,6 +486,7 @@ struct sem<CASPParserModuleSemantics::caspDirective>
   		  bool oneArgument=!!boost::fusion::at_c<2>(source);
   		  assert(!oneArgument);
 
+  		  //FIXME lowercase
   		  // Must to be a variable
   		  assert(variableGlobalID.isVariableTerm());
 
@@ -465,7 +526,7 @@ namespace {
   	{
   		typedef CASPParserModuleSemantics Sem;
   			caspRule
-  		= (caspDirective | (Base::headAtom >> -(qi::lit(":-") > (( caspElement | Base::bodyLiteral ) % qi::char_(',')) ) >> qi::lit('.') )) [ Sem::caspRule(sem) ];
+  		= (caspDirective | ((Base::headAtom % qi::lit("|") ) || (qi::lit(":-") > (( caspElement | Base::bodyLiteral ) % qi::char_(',')) )) >> qi::lit('.') ) [ Sem::caspRule(sem) ];
   			caspElement
   		= (
   				(Base::term | caspVariable) >> +( caspOperator >> (Base::term | caspVariable)  )>> qi::eps
@@ -473,13 +534,13 @@ namespace {
 
   			caspVariable
   		= (
-			 qi::lit("$") >> (caspSum | qi::lexeme[ ascii::upper >> *(ascii::alnum | qi::char_('_')) ])
+			 qi::lit("$") >> (caspSum | qi::lexeme[ ascii::lower >> *(ascii::alnum | qi::char_('_')) ])
 
 		)[Sem::caspVariable(sem)];
 
   			caspSum
   		=(
-					 qi::lit("sum(") >> Base::term >> qi::lit(",") >> Base::term >> qi::lit(")")
+					 qi::lit("sum(") >>  qi::lexeme[ ascii::lower >> *(ascii::alnum | qi::char_('_')) ] >> qi::lit(",") >> Base::term >> qi::lit(")")
   		)[Sem::caspSum(sem)];
 
   			caspDirective
@@ -548,9 +609,6 @@ public:
 };
 
 }
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 std::vector<HexParserModulePtr>	CASPPlugin::createParserModules(ProgramCtx& ctx)
 {
 	DBGLOG(DBG,"CASPPlugin::createParserModules()");

@@ -89,6 +89,8 @@ public:
 		trueAtoms = query.assigned->trueBits();
 
 		vector<ID> atomIds;
+		if(!_idSaved)
+			StoreID(registry);
 
 		// Iterate over all input interpretation
 		for (Interpretation::TrueBitIterator it = trueAtoms.first; it != trueAtoms.second; it++) {
@@ -98,9 +100,8 @@ public:
 				continue;
 			}
 			string expr="";
-			if(!_idSaved){
-				StoreID(registry);
-			}
+			cout<<"atom.tuple[0] "<<printToString<RawPrinter>(atom.tuple[0],getRegistry())<<endl;
+
 			if (_exprID.find(atom.tuple[0])!=_exprID.end()) {
 				Term value = registry.terms.getByID(atom.tuple[1]);
 				expr = value.symbol;
