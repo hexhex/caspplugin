@@ -169,6 +169,15 @@ public:
 			}
 	};
 
+	struct caspGlobalConstraint:
+			SemanticActionBase<CASPParserModuleSemantics, ID, caspGlobalConstraint>
+		{
+				caspGlobalConstraint(CASPParserModuleSemantics& mgr):
+					caspGlobalConstraint::base_type(mgr)
+				{
+				}
+		};
+
 	~CASPParserModuleSemantics()
 	{
 		createCaspExternalAtom();
@@ -449,26 +458,21 @@ template<>
 struct sem<CASPParserModuleSemantics::caspDirective>
 {
 
+
   void operator()(
     CASPParserModuleSemantics& mgr,
-    const boost::fusion::vector3<std::basic_string<char>, dlvhex::ID, boost::optional<dlvhex::ID> >& source,
+    const boost::variant<boost::fusion::vector2<dlvhex::ID, dlvhex::ID>, dlvhex::ID>& source,
     ID& target)
   {
 	  RegistryPtr reg = mgr.ctx.registry();
-	  string directive= boost::fusion::at_c<0>(source);
 
-	  OrdinaryAtom atom(ID::MAINKIND_ATOM);
-	  assert(directive=="domain" || directive=="maximize" || directive=="minimize");
-	  if(directive=="domain")
+	  if(const boost::fusion::vector2<dlvhex::ID, dlvhex::ID>* upLowContainer= boost::get< boost::fusion::vector2<dlvhex::ID, dlvhex::ID> >( &source ))
 	  {
+		  string directive= "domain";
+		  OrdinaryAtom atom(ID::MAINKIND_ATOM);
 		  ID directiveID=reg->storeConstantTerm(directive);
-		  ID domainLowerBoudID =boost::fusion::at_c<1>(source);
-
-		  //no upper bound
-		  bool noDomainUpperBound=!!boost::fusion::at_c<2>(source);
-		  assert(noDomainUpperBound);
-
-		  ID domainUpperBoudID =boost::fusion::at_c<2>(source).get();
+		  ID domainLowerBoudID =boost::fusion::at_c<0>(*upLowContainer);
+		  ID domainUpperBoudID =boost::fusion::at_c<1>(*upLowContainer);
 
 		  //domain must to have lower and upper bound as Integer
 		  assert(domainLowerBoudID.isIntegerTerm() && domainUpperBoudID.isIntegerTerm());
@@ -476,24 +480,13 @@ struct sem<CASPParserModuleSemantics::caspDirective>
 		  atom.tuple.push_back(directiveID);
 		  atom.tuple.push_back(domainLowerBoudID);
 		  atom.tuple.push_back(domainUpperBoudID);
+		  target=reg->storeOrdinaryAtom(atom);
 	  }
 	  else
 	  {
-		  ID directiveID=reg->storeConstantTerm(directive);
-		  ID variableGlobalID =boost::fusion::at_c<1>(source);
-
-		  //no two argument
-  		  bool oneArgument=!!boost::fusion::at_c<2>(source);
-  		  assert(!oneArgument);
-
-  		  //FIXME lowercase
-  		  // Must to be a variable
-  		  assert(variableGlobalID.isVariableTerm());
-
-		  atom.tuple.push_back(directiveID);
-  		  atom.tuple.push_back(reg->storeConstantTerm("\""+reg->getTermStringByID(variableGlobalID)+"\""));
+		  target=*(boost::get< ID >( &source ));
 	  }
-	  target=reg->storeOrdinaryAtom(atom);
+
   }
 };
 
@@ -506,6 +499,39 @@ struct sem<CASPParserModuleSemantics::caspOperator>
 	{
 		RegistryPtr reg = mgr.ctx.registry();
 		target=dlvhex::ID::termFromBuiltinString(source);
+	}
+
+};
+
+template<>
+struct sem<CASPParserModuleSemantics::caspGlobalConstraint>
+{
+
+
+	void operator()(
+			CASPParserModuleSemantics& mgr,
+			const boost::fusion::vector2<std::basic_string<char>, boost::fusion::vector2<char, std::vector<char, std::allocator<char> > > >& source, dlvhex::ID& target)
+	{
+		RegistryPtr reg = mgr.ctx.registry();
+
+		string directive=boost::fusion::at_c<0>(source);
+		assert(directive=="maximize" || directive=="minimize");
+
+		//read argument
+		boost::fusion::vector2<char, std::vector<char, std::allocator<char> > > v=boost::fusion::at_c<1>(source);
+		string predicateName;
+		predicateName+=boost::fusion::at_c<0>(v);
+		std::vector<char, std::allocator<char> > chars=boost::fusion::at_c<1>(v);
+		for(int i=0;i<chars.size();i++)
+			predicateName+=chars[i];
+
+		ID predicateID=reg->storeConstantTerm("\""+predicateName+"\"");
+
+		//create atom $directive("namePredicate")
+		OrdinaryAtom atom(ID::MAINKIND_ATOM);
+		atom.tuple.push_back(reg->storeConstantTerm(directive));
+		atom.tuple.push_back(predicateID);
+		target=reg->storeOrdinaryAtom(atom);
 	}
 
 };
@@ -539,16 +565,20 @@ namespace {
 		)[Sem::caspVariable(sem)];
 
   			caspSum
-  		=(
+  		= (
 					 qi::lit("sum(") >>  qi::lexeme[ ascii::lower >> *(ascii::alnum | qi::char_('_')) ] >> qi::lit(",") >> Base::term >> qi::lit(")")
   		)[Sem::caspSum(sem)];
 
   			caspDirective
   		= (
-  				qi::lit("$")>>Base::cident>>qi::lit("(")>Base::term>-(qi::lit("..")>Base::term)>>qi::lit(").")
+  				qi::lit("$domain(")>>Base::term>qi::lit("..")>Base::term>>qi::lit(").") | caspGlobalConstraint
   		)[ Sem::caspDirective(sem) ];
+  			caspGlobalConstraint
+  		= (
+  				qi::lit("$")>>Base::cident>>qi::lit("(")>>qi::lexeme[ ascii::lower >> *(ascii::alnum | qi::char_('_')) ] >>qi::lit(")")>>qi::lit('.')
+  		)[ Sem::caspGlobalConstraint(sem)];
   			caspOperator
-  		=(
+  		= (
   				qi::lit("$")>>(qi::string("==")|qi::string("+")| qi::string("-")|qi::string("*")|qi::string("/")|qi::string("%")| qi::string("<")|qi::string(">")|qi::string("<=")|qi::string("=>"))
   			)[Sem::caspOperator(sem)];
   #ifdef BOOST_SPIRIT_DEBUG
@@ -561,6 +591,7 @@ namespace {
   	qi::rule<Iterator, ID(), Skipper> caspOperator;
   	qi::rule<Iterator, string(), Skipper> caspVariable;
   	qi::rule<Iterator, string(), Skipper> caspSum;
+  	qi::rule<Iterator, ID(), Skipper> caspGlobalConstraint;
   };
 
 struct CASPParserModuleGrammar:
