@@ -11,10 +11,9 @@ libdlvhexplugin_casp_la_SOURCES = \
 		utility.cpp \
 		gecodesolver.cpp \
 		simpleparser.cpp \
-		caspconverter.cpp \
-		casprewriter.cpp \
 		learningprocessor.cpp \
-		caspplugin.cpp
+		CaspPlugin.cpp \
+		ConsistencyAtom.cpp 
 
 #
 # extend compiler flags by CFLAGS of other needed libraries
