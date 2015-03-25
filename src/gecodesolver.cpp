@@ -14,14 +14,17 @@
 #include <boost/foreach.hpp>
 #include <boost/algorithm/string.hpp>
 
+#include <dlvhex2/Printer.h>
+
 using namespace Gecode;
 using namespace std;
 
-GecodeSolver::GecodeSolver(vector<string> sumData, int domainMinValue,int domainMaxValue, string globalConstraintName, string globalConstraintValue,
+GecodeSolver::GecodeSolver(dlvhex::RegistryPtr reg,vector<dlvhex::OrdinaryAtom> sumElement, int domainMinValue,int domainMaxValue, string globalConstraintName, string globalConstraintValue,
 		boost::shared_ptr<SimpleParser> simpleParser) :
+		_reg(reg),
 		_simpleParser(simpleParser) {
 
-	_sumData = sumData;
+	_sumElement = sumElement;
 
 	_minValue = domainMinValue;
 	_maxValue = domainMaxValue;
@@ -116,24 +119,12 @@ Gecode::LinExpr GecodeSolver::makeExpression(ParseTree* tree) {
 			int position = atoi(variableName.substr(index2 + 1, variableName.length() - index2).c_str());
 
 			LinExpr result = expr(*this, 0);
-			for (int i = 0; i < _sumData.size(); i++) {
-				string s = _sumData[i];
+			for (int i = 0; i < _sumElement.size(); i++) {
+				dlvhex::OrdinaryAtom atom=_sumElement[i];
 
-				boost::char_separator<char> sep(",() ", "", boost::drop_empty_tokens);
-
-				boost::tokenizer<boost::char_separator<char> > tokens(s, sep);
-
-				int ind = 0;
-				for (boost::tokenizer<boost::char_separator<char> >::iterator it = tokens.begin(); it != tokens.end(); ++it) {
-					string token = *it;
-
-					if (ind == 0 && token != predicate)
-						break;
-					else if (ind == position) {
-						result = result + expr(*this, atoi(token.c_str()));
-						break;
-					}
-					ind++;
+				if(_reg->getTermStringByID(atom.tuple[1])==predicate && atom.tuple[2].address==position)
+				{
+					result = result+expr(*this,atom.tuple[3].address);
 				}
 			}
 			return result;

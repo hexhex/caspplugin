@@ -4,6 +4,8 @@
 #include "casp/learningprocessor.h"
 #include "casp/gecodesolver.h"
 
+#include <dlvhex2/Printer.h>
+
 #include <vector>
 #include <string>
 
@@ -203,7 +205,9 @@ void BackwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<
 			break;
 
 //		cout<<"no good += "<<expressions[propagateIndex]<<endl;
-//		cout<<atomIds[propagateIndex].print(cout)<<endl;
+//
+//		cout<<"questo è l'atomo aggiunto:"<<printToString<RawPrinter>(atomIds[propagateIndex],reg)<<endl;
+//		cout<<"questo è l'id:"<<atomIds[propagateIndex]<<endl;
 		otherSolver->propagate(expressions[propagateIndex]);
 		iis.push_back(atomIds[propagateIndex]);
 

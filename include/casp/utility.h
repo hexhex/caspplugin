@@ -12,6 +12,11 @@
 using namespace std;
 
 /**
+ * @brief This helper method is used to check whether string is a comparison operator
+ */
+bool isComparisonOperator(string s);
+
+/**
  * @brief This helper method is used to check whether string is a variable
  */
 bool isVariable(string s);

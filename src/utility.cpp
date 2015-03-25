@@ -10,6 +10,13 @@
 
 using namespace std;
 
+/**
+ * @brief This helper method is used to check whether string is a ComparisonOperator
+ */
+bool isComparisonOperator(string s)
+{
+	return s=="=="||s==">="||s=="<="||s==">"||s=="<";
+}
 
 /**
  * @brief This helper method is used to check whether string is a variable

@@ -5,4 +5,3 @@ num(4).
 p(X) :- #int(X), X>=0, X <= N, num(N).
 a:- p(X), X $> 2.
 b:- p(X), X $> 3.
-d:- $sum(b,2) $>0.

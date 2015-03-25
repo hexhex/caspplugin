@@ -1,15 +1,14 @@
 #include "casp/ConsistencyAtom.h"
 using namespace casp;
 
-ConsistencyAtom::ConsistencyAtom(int numberSumPredicate,boost::shared_ptr<LearningProcessor> learningProcessor,
+ConsistencyAtom::ConsistencyAtom(boost::shared_ptr<LearningProcessor> learningProcessor,
 		boost::shared_ptr<SimpleParser> simpleParser) :
 		PluginAtom( "casp", 0),
 		_learningProcessor(learningProcessor),
 		_simpleParser(simpleParser),_idSaved(false)
 {
 	// This add predicates for all input parameters
-	cout<<"Input num: "<<5+numberSumPredicate<<endl;
-	for (int i = 0; i < 5+numberSumPredicate; i++)
+	for (int i = 0; i < 6; i++)
 		addInputPredicate();
 
 	setOutputArity(0);
@@ -19,9 +18,8 @@ ConsistencyAtom::ConsistencyAtom(int numberSumPredicate,boost::shared_ptr<Learni
 void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContainerPtr nogoods) throw (PluginError)
 {
 	Registry &registry = *getRegistry();
-
 	std::vector<std::string> expressions;
-	std::vector<std::string> sumData;
+	std::vector<OrdinaryAtom> sumData;
 	int domainMaxValue;
 	int domainMinValue;
 	bool definedDomain=false;
@@ -34,6 +32,7 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 	vector<ID> atomIds;
 	if(!_idSaved)
 		storeID(registry);
+
 	// Iterate over all input interpretation
 	for (Interpretation::TrueBitIterator it = trueAtoms.first; it != trueAtoms.second; it++) {
 		const OrdinaryAtom &atom = query.assigned->getAtomToBit(it);
@@ -61,7 +60,7 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 			globalConstraintValue = removeQuotes(registry.terms.getByID(atom.tuple[1]).symbol);
 		}
 		else { // this predicate received as input to sum aggregate function
-			sumData.push_back(atom.text);
+			sumData.push_back(atom);
 		}
 		if (expr != "") { // handle expr and not_expr
 			// Replace all ASP variables with their actual values.
@@ -102,7 +101,7 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 		throw dlvhex::PluginError("No domain specified");
 
 	// Call gecode solver
-	GecodeSolver* solver = new GecodeSolver(sumData,domainMinValue, domainMaxValue, globalConstraintName, globalConstraintValue, _simpleParser);
+	GecodeSolver* solver = new GecodeSolver(getRegistry(),sumData,domainMinValue, domainMaxValue, globalConstraintName, globalConstraintValue, _simpleParser);
 	solver->propagate(expressions);
 
 	Gecode::Search::Options opt;
@@ -114,7 +113,7 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 		answer.get().push_back(out);
 	}
 	else if (nogoods != 0){ // otherwise we need to learn IIS from it
-		GecodeSolver* otherSolver = new GecodeSolver(sumData, domainMinValue,domainMaxValue, globalConstraintName, globalConstraintValue, _simpleParser);
+		GecodeSolver* otherSolver = new GecodeSolver(getRegistry(),sumData, domainMinValue,domainMaxValue, globalConstraintName, globalConstraintValue, _simpleParser);
 		_learningProcessor->learnNogoods(nogoods, expressions, atomIds, otherSolver);
 		delete otherSolver;
 	}

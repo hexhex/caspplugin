@@ -45,7 +45,7 @@ public:
 	/**
 	 * Simple constuctor, which accepts option for IIS learning
 	 */
-	ConsistencyAtom(int numberSumPredicate,boost::shared_ptr<LearningProcessor> learningProcessor,
+	ConsistencyAtom(boost::shared_ptr<LearningProcessor> learningProcessor,
 			boost::shared_ptr<SimpleParser> simpleParser);
 	/**
 	 * @brief Retrieves answer for query.

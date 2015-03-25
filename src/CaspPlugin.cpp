@@ -1,5 +1,4 @@
 #include "casp/CaspPlugin.h"
-#include <dlvhex2/Printer.h>
 
 DLVHEX_NAMESPACE_BEGIN
 
@@ -9,15 +8,9 @@ namespace qi = boost::spirit::qi;
 
 CASPPlugin::CASPPlugin() :
 				_simpleParser(new SimpleParser()),
-				_learningProcessor(new NoLearningProcessor(_simpleParser)),
-				_numberSumPredicate(0)
+				_learningProcessor(new NoLearningProcessor(_simpleParser))
 {
 	setNameVersion(PACKAGE_TARNAME,CASPPLUGIN_VERSION_MAJOR,CASPPLUGIN_VERSION_MINOR,CASPPLUGIN_VERSION_MICRO);
-}
-
-void CASPPlugin::incrementNumberSumPredicate()
-{
-	_numberSumPredicate++;
 }
 
 void CASPPlugin::printUsage(std::ostream& o) const
@@ -85,6 +78,17 @@ processOptions(std::list<const char*>& pluginOptions, ProgramCtx& ctx)
 }
 
 
+
+struct SumElement
+{
+	string predicateName;
+	int predicateArity;
+	ID index;
+	SumElement(int _predicateArity=-1):predicateArity(_predicateArity)
+	{
+	}
+};
+
 class CASPParserModuleSemantics:
 public HexGrammarSemantics
 {
@@ -94,18 +98,17 @@ public:
 	bool defineDomain;
 	ID expr;
 	ID not_expr;
-	ID extAtom;
-	ID ruleExt;
-
+	vector<SumElement> sumPredicates;
+	int  previousSizeOfSumPredicates;
 public:
-	CASPParserModuleSemantics(ProgramCtx& ctx,CASPPlugin& _caspPlugin):
+	CASPParserModuleSemantics(ProgramCtx& ctx):
 		HexGrammarSemantics(ctx),
 		ctxdata(ctx.getPluginData<CASPPlugin>()),
-		defineDomain(false),
-		caspPlugin(_caspPlugin)
+		defineDomain(false)
 	{
 		expr=ctx.registry()->storeConstantTerm("expr");
 		not_expr=ctx.registry()->storeConstantTerm("not_expr");
+		previousSizeOfSumPredicates=0;
 		createCaspExternalAtom();
 	}
 
@@ -183,18 +186,16 @@ public:
 		ext.inputs.push_back(reg->storeConstantTerm("minimize"));
 		ext.inputs.push_back(expr);
 		ext.inputs.push_back(not_expr);
-		extAtom=reg->eatoms.storeAndGetID(ext);
-		externalConstraint.body.push_back( ID::nafLiteralFromAtom(extAtom));
+		ext.inputs.push_back(reg->storeConstantTerm("sumElement"));
+		externalConstraint.body.push_back( ID::nafLiteralFromAtom(reg->eatoms.storeAndGetID(ext)));
 		ID extRuleID=reg->storeRule(externalConstraint);
-		ruleExt=extRuleID;
 		ctx.idb.push_back(extRuleID);
-		cout<<printToString<RawPrinter>(extRuleID,reg)<<endl<<endl<<endl;
 	}
 };
 
+
 // create semantic handler for above semantic action
 // (needs to be in globally specializable struct space)
-
 
 template<>
 struct sem<CASPParserModuleSemantics::caspRule>
@@ -205,6 +206,14 @@ struct sem<CASPParserModuleSemantics::caspRule>
 			boost::optional<std::vector<dlvhex::ID> > > >&  source,
 			ID& target)
 	{
+
+		bool insertSumRule=false;
+		//check if there is some new sum predicate in the rule
+		if(mgr.previousSizeOfSumPredicates!=mgr.sumPredicates.size())
+		{
+			insertSumRule=true;
+		}
+
 		Tuple  bodyWithoutCasp;
 		Tuple bodyCasp;
 
@@ -249,6 +258,18 @@ struct sem<CASPParserModuleSemantics::caspRule>
 						}
 						else
 						{
+							if(insertSumRule)
+							{
+								for(int i=mgr.previousSizeOfSumPredicates;i<mgr.sumPredicates.size();i++)
+								{
+									Term term=reg->terms.getByID(atom.tuple[0]);
+									if(mgr.sumPredicates[i].predicateName==term.symbol)
+									{
+										//save the arity of the predicate involved in the sum
+										mgr.sumPredicates[i].predicateArity=atom.tuple.size()-1;
+									}
+								}
+							}
 							bodyWithoutCasp.push_back(id);
 						}
 					}
@@ -259,9 +280,11 @@ struct sem<CASPParserModuleSemantics::caspRule>
 				}
 			}
 		}
+		createSumRule(mgr);
+		mgr.previousSizeOfSumPredicates=mgr.sumPredicates.size();
+
 		ID ruleID=reg->storeRule(rule);
 		mgr.ctx.idb.push_back(ruleID);
-		cout<<printToString<RawPrinter>(ruleID,reg)<<endl;
 
 		//create guessing rule
 		BOOST_FOREACH(const ID& id, bodyCasp)
@@ -269,12 +292,7 @@ struct sem<CASPParserModuleSemantics::caspRule>
 			Rule guessingRule(ID::MAINKIND_RULE | ID::SUBKIND_RULE_REGULAR | ID::PROPERTY_RULE_DISJ);
 			guessingRule.body.insert(guessingRule.body.end(),bodyWithoutCasp.begin(),bodyWithoutCasp.end());
 
-			if (id.isLiteral()) {
-				guessingRule.head.push_back(ID::posLiteralFromAtom(ID::atomFromLiteral(id)));
-			}
-			else {
-				guessingRule.head.push_back(ID::posLiteralFromAtom(id));
-			}
+			guessingRule.head.push_back(id);
 
 			OrdinaryAtom notCaspAtom = reg->lookupOrdinaryAtom(id);
 			Term t = reg->terms.getByID(notCaspAtom.tuple[0]);
@@ -288,7 +306,39 @@ struct sem<CASPParserModuleSemantics::caspRule>
 
 			ID guessingRuleID = reg->storeRule(guessingRule);
 			mgr.ctx.idb.push_back(guessingRuleID);
-			cout<<printToString<RawPrinter>(guessingRuleID,reg)<<endl;
+		}
+	}
+
+	void createSumRule(CASPParserModuleSemantics& mgr)
+	{
+		RegistryPtr reg=mgr.ctx.registry();
+
+		for(int i=mgr.previousSizeOfSumPredicates;i<mgr.sumPredicates.size();i++)
+		{
+			Rule rule(ID::MAINKIND_RULE | ID::SUBKIND_RULE_REGULAR);
+			SumElement sumElement=mgr.sumPredicates[i];
+
+			//check the arity of argument of $sum
+			assert(sumElement.predicateArity!=-1 && sumElement.index.address<=sumElement.predicateArity);
+
+			OrdinaryAtom headAtom(ID::MAINKIND_ATOM);
+			headAtom.tuple.push_back(reg->storeConstantTerm("sumElement"));
+			ID predicateID=reg->storeConstantTerm(sumElement.predicateName);
+			headAtom.tuple.push_back(predicateID);
+			headAtom.tuple.push_back(sumElement.index);
+			headAtom.tuple.push_back(reg->storeVariableTerm("X"+boost::lexical_cast<string>(sumElement.index.address)));
+			rule.head.push_back(reg->storeOrdinaryAtom(headAtom));
+
+			OrdinaryAtom bodyAtom(ID::MAINKIND_ATOM);
+			bodyAtom.tuple.push_back(predicateID);
+			for(int i=1;i<=sumElement.predicateArity;i++)
+			{
+				bodyAtom.tuple.push_back(reg->storeVariableTerm("X"+boost::lexical_cast<string>(i)));
+			}
+			rule.body.push_back(reg->storeOrdinaryAtom(bodyAtom));
+
+			ID ruleID=reg->storeRule(rule);
+			mgr.ctx.idb.push_back(ruleID);
 		}
 	}
 };
@@ -304,6 +354,7 @@ struct sem<CASPParserModuleSemantics::caspElement>
 			std::allocator<boost::fusion::vector2<dlvhex::ID, boost::variant<dlvhex::ID, std::basic_string<char> > > > > > & source,
 			ID& target)
 	{
+		bool alreadyComparisonOperatorDefined=false;
 		ostringstream os;
 		//variables in expr
 		vector<ID> variables;
@@ -329,6 +380,12 @@ struct sem<CASPParserModuleSemantics::caspElement>
 			boost::fusion::vector2<dlvhex::ID, boost::variant<dlvhex::ID, std::basic_string<char> > > v1=v[i];
 
 			ID operatorID= boost::fusion::at_c<0>(v1);
+			if(isComparisonOperator(reg->getTermStringByID(operatorID)))
+			{
+				//only one comparisonOperator is allowed in expression
+				assert(!alreadyComparisonOperatorDefined);
+				alreadyComparisonOperatorDefined=true;
+			}
 			os<<printToString<RawPrinter>(operatorID, reg);
 			caspVariable=getVariable(reg,boost::fusion::at_c<1>(v1),variable);
 			os<<printToString<RawPrinter>(variable, reg);
@@ -402,34 +459,30 @@ struct sem<CASPParserModuleSemantics::caspSum>
 
 		//read predicate name
 		const boost::fusion::vector2<char, std::vector<char, std::allocator<char> > >& v=boost::fusion::at_c<0>(source);
-		string predicateName;
-		predicateName+=boost::fusion::at_c<0>(v);
+		SumElement sumElement;
+
+		sumElement.predicateName+=boost::fusion::at_c<0>(v);
 		std::vector<char, std::allocator<char> > chars=boost::fusion::at_c<1>(v);
 		for(int i=0;i<chars.size();i++)
-			predicateName+=chars[i];
-		ID predicateID=reg->storeConstantTerm(predicateName);
+			sumElement.predicateName+=chars[i];
+		ID predicateID=reg->storeConstantTerm(sumElement.predicateName);
 
 		//read i-th(1-based) argument
 		ID integerID=boost::fusion::at_c<1>(source);
+		sumElement.index=integerID;
 		assert(integerID.isIntegerTerm());
 
 		ostringstream os;
 		os<<printToString<RawPrinter>(integerID,reg);
-		ExternalAtom ext=reg->eatoms.getByID(mgr.extAtom);
-		ext.inputs.push_back(predicateID);
+		target="sum_"+sumElement.predicateName+"_"+os.str();
 
-		mgr.caspPlugin.incrementNumberSumPredicate();
-		target="sum_"+predicateName+"_"+os.str();
-		//FIXME
-		cout<<"regola  "<<printToString<RawPrinter>(mgr.ruleExt,reg)<<endl;
-		cout<<"esterno "<<printToString<RawPrinter>(mgr.extAtom,reg)<<endl;
+		mgr.sumPredicates.push_back(sumElement);
+
 	}
 };
 template<>
 struct sem<CASPParserModuleSemantics::caspDirective>
 {
-
-
 	void operator()(
 			CASPParserModuleSemantics& mgr,
 			const boost::variant<boost::fusion::vector2<dlvhex::ID, dlvhex::ID>, dlvhex::ID>& source,
@@ -480,8 +533,6 @@ struct sem<CASPParserModuleSemantics::caspOperator>
 template<>
 struct sem<CASPParserModuleSemantics::caspGlobalConstraint>
 {
-
-
 	void operator()(
 			CASPParserModuleSemantics& mgr,
 			const boost::fusion::vector2<std::basic_string<char>, boost::fusion::vector2<char, std::vector<char, std::allocator<char> > > >& source, dlvhex::ID& target)
@@ -553,7 +604,7 @@ public HexGrammarBase<Iterator, Skipper>
 		)[ Sem::caspGlobalConstraint(sem)];
 		caspOperator
 		= (
-				qi::lit("$")>>(qi::string("==")|qi::string("+")| qi::string("-")|qi::string("*")|qi::string("/")|qi::string("%")|qi::string("<=")|qi::string(">=")| qi::string("<")|qi::string(">"))
+				qi::lit("$")>>(qi::string("+")| qi::string("-")|qi::string("*")|qi::string("/")|qi::string("%")|qi::string("==")|qi::string("<=")|qi::string(">=")| qi::string("<")|qi::string(">"))
 		)[Sem::caspOperator(sem)];
 #ifdef BOOST_SPIRIT_DEBUG
 		BOOST_SPIRIT_DEBUG_NODE(caspElement);
@@ -598,9 +649,9 @@ public:
 	CASPParserModuleGrammarPtr grammarModule;
 
 
-	CASPParserModule(ProgramCtx& ctx,CASPPlugin& caspPlugin):
+	CASPParserModule(ProgramCtx& ctx):
 		HexParserModule(moduletype),
-		sem(ctx,caspPlugin)
+		sem(ctx)
 	{
 		LOG(INFO,"constructed CASPParserModule");
 	}
@@ -623,7 +674,7 @@ std::vector<HexParserModulePtr>	CASPPlugin::createParserModules(ProgramCtx& ctx)
 	CASPPlugin::CtxData& ctxdata = ctx.getPluginData<CASPPlugin>();
 	if( ctxdata.enabled )
 	{
-		ret.push_back(HexParserModulePtr(new CASPParserModule<HexParserModule::TOPLEVEL>(ctx,*this)));
+		ret.push_back(HexParserModulePtr(new CASPParserModule<HexParserModule::TOPLEVEL>(ctx)));
 	}
 	return ret;
 }
@@ -631,7 +682,7 @@ std::vector<HexParserModulePtr>	CASPPlugin::createParserModules(ProgramCtx& ctx)
 std::vector<PluginAtomPtr> CASPPlugin::createAtoms(ProgramCtx&) const
 {
 	std::vector<PluginAtomPtr> ret;
-	ret.push_back(PluginAtomPtr(new ConsistencyAtom(_numberSumPredicate,_learningProcessor, _simpleParser), PluginPtrDeleter<PluginAtom>()));
+	ret.push_back(PluginAtomPtr(new ConsistencyAtom(_learningProcessor, _simpleParser), PluginPtrDeleter<PluginAtom>()));
 	return ret;
 }
 DLVHEX_NAMESPACE_END
