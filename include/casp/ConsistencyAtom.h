@@ -73,6 +73,8 @@ private:
 
 	// store constraint atom id
 	void storeID( dlvhex::Registry& registry);
+
+	string getExpressionFromID(RegistryPtr reg, const OrdinaryAtom& atom,bool replaceReversibleOperator );
 };
 #endif /* CONSISTENCYATOM_H_ */
 }

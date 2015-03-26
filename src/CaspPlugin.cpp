@@ -227,6 +227,7 @@ struct sem<CASPParserModuleSemantics::caspRule>
 		else
 		{
 			const boost::fusion::vector2<boost::optional<std::vector<dlvhex::ID> >, boost::optional<std::vector<dlvhex::ID> > > idAtomRule=*(boost::get< boost::fusion::vector2<boost::optional< std::vector<dlvhex::ID> >, boost::optional<std::vector<dlvhex::ID> > > > ( &source ));
+			//if the head exist
 			if(!!boost::fusion::at_c<0>(idAtomRule))
 			{
 				vector<ID> head =boost::fusion::at_c<0>(idAtomRule).get();
@@ -239,10 +240,13 @@ struct sem<CASPParserModuleSemantics::caspRule>
 
 				rule.head.insert(rule.head.end(),head.begin(),head.end());
 			}
+			//if not exist the head but there is the body
 			else if(!!boost::fusion::at_c<1>(idAtomRule))
 			{
 				rule.kind |= ID::SUBKIND_RULE_CONSTRAINT;
 			}
+
+			//if exist the body
 			if(!!boost::fusion::at_c<1>(idAtomRule))
 			{
 				std::vector<dlvhex::ID> idBody=boost::fusion::at_c<1>(idAtomRule).get();
@@ -355,24 +359,18 @@ struct sem<CASPParserModuleSemantics::caspElement>
 			ID& target)
 	{
 		bool alreadyComparisonOperatorDefined=false;
-		ostringstream os;
-		//variables in expr
-		vector<ID> variables;
 		RegistryPtr reg = mgr.ctx.registry();
-		bool caspVariable=false;
+
+		//result atom of caspElement
+		OrdinaryAtom atom(ID::MAINKIND_ATOM);
+		atom.tuple.push_back(mgr.expr);
 
 		ID variable;
 
-		caspVariable=getVariable(reg,boost::fusion::at_c<0>(source),variable);
+		variable=getVariable(reg,boost::fusion::at_c<0>(source));
 
-		//check if not is $z
-		if(!caspVariable)
-		{
-			set<ID> var=reg->getVariablesInID(variable,true);
-			variables.insert(variables.end(),var.begin(),var.end());
-		}
-		caspVariable=false;
-		os<<printToString<RawPrinter>(variable, reg);
+		atom.tuple.push_back(variable);
+
 		std::vector<boost::fusion::vector2<dlvhex::ID, boost::variant<dlvhex::ID, std::basic_string<char> > > >  v=boost::fusion::at_c<1>(source);
 		for(int i=0;i<v.size();i++)
 		{
@@ -386,39 +384,26 @@ struct sem<CASPParserModuleSemantics::caspElement>
 				assert(!alreadyComparisonOperatorDefined);
 				alreadyComparisonOperatorDefined=true;
 			}
-			os<<printToString<RawPrinter>(operatorID, reg);
-			caspVariable=getVariable(reg,boost::fusion::at_c<1>(v1),variable);
-			os<<printToString<RawPrinter>(variable, reg);
-			if(!caspVariable)
-			{
-				set<ID> var=reg->getVariablesInID(variable,true);
-				variables.insert(variables.end(),var.begin(),var.end());
-			}
-			caspVariable=false;
+			atom.tuple.push_back(operatorID);
+			variable=getVariable(reg,boost::fusion::at_c<1>(v1));
+			atom.tuple.push_back(variable);
 		}
-
-		//result atom of caspElement
-		OrdinaryAtom atom(ID::MAINKIND_ATOM);
-		atom.tuple.push_back(mgr.expr);
-		ID expression=reg->storeConstantTerm("\""+os.str()+"\"");
-		atom.tuple.push_back(expression);
-		atom.tuple.insert(atom.tuple.end(),variables.begin(),variables.end());
 		target=reg->storeOrdinaryAtom(atom);
 	}
 
 	//generate constant term from string or return ID of term
-	bool getVariable(RegistryPtr& reg,const boost::variant<dlvhex::ID, std::basic_string<char> >& variant,ID& toReturn)
+	ID getVariable(RegistryPtr& reg,const boost::variant<dlvhex::ID, std::basic_string<char> >& variant)
 	{
+		ID toReturn;
 		if(const std::basic_string<char>* variable = boost::get< std::basic_string<char> >( &variant ))
 		{
-			toReturn=reg->storeConstantTerm(*variable);
-			return true;
+			toReturn=reg->storeConstantTerm("\""+*variable+"\"");
 		}
 		else
 		{
 			toReturn=*( boost::get< ID >( &variant ));
-			return false;
 		}
+		return toReturn;
 	}
 };
 
@@ -525,7 +510,7 @@ struct sem<CASPParserModuleSemantics::caspOperator>
 			const std::basic_string< char >& source, dlvhex::ID& target)
 	{
 		RegistryPtr reg = mgr.ctx.registry();
-		target=reg->storeConstantTerm(source);
+		target=reg->storeConstantTerm("\""+source+"\"");
 	}
 
 };

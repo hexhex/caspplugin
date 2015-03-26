@@ -43,12 +43,12 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 		string expr="";
 
 		if (atom.tuple[0]==_exprID) {
-			Term value = registry.terms.getByID(atom.tuple[1]);
-			expr = value.symbol;
+			expressions.push_back(getExpressionFromID(getRegistry(),atom,false));
+			atomIds.push_back(registry.ogatoms.getIDByTuple(atom.tuple));
 		}
 		else if (atom.tuple[0]==_notExprID) {
-			Term value = registry.terms.getByID(atom.tuple[1]);
-			expr = replaceInvertibleOperator(value.symbol);
+			expressions.push_back(getExpressionFromID(getRegistry(),atom,true));
+			atomIds.push_back(registry.ogatoms.getIDByTuple(atom.tuple));
 		}
 		else if (atom.tuple[0]==_domID) {
 			definedDomain=true;
@@ -61,39 +61,6 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 		}
 		else { // this predicate received as input to sum aggregate function
 			sumData.push_back(atom);
-		}
-		if (expr != "") { // handle expr and not_expr
-			// Replace all ASP variables with their actual values.
-			int variableIndex = 2;
-
-			boost::char_separator<char> sep(" ", ",v.:-$%<>=+-/*\"<>=()", boost::drop_empty_tokens);
-
-			std::string result = "";
-			boost::tokenizer<boost::char_separator<char> > tokens(expr, sep);
-			for ( boost::tokenizer<boost::char_separator<char> >::iterator it = tokens.begin(); it != tokens.end(); ++it) {
-				std::string val = *it;
-				if (isVariable(val)) {
-					string res;
-					ID id = atom.tuple[variableIndex++];
-					if (id.isIntegerTerm()) {
-						ostringstream os(res);
-						os << id.address;
-						res = os.str();
-					}
-					else if (id.isTerm()) {
-						res = registry.terms.getByID(id).symbol;
-					}
-					else if (id.isOrdinaryAtom()) {
-						res = registry.lookupOrdinaryAtom(id).text;
-					}
-					result += res;
-				}
-				else result += val;
-			}
-
-			// Store the replaced expression without quotes
-			expressions.push_back(removeQuotes(result));
-			atomIds.push_back(registry.ogatoms.getIDByTuple(atom.tuple));
 		}
 	}
 
@@ -130,3 +97,30 @@ void ConsistencyAtom::storeID( dlvhex::Registry& registry)
 		_idSaved=true;
 }
 
+
+string ConsistencyAtom::getExpressionFromID(RegistryPtr reg, const OrdinaryAtom& atom,bool replaceReversibleOperator )
+{
+	ostringstream os;
+	for(int i=1;i<atom.tuple.size();i++)
+	{
+		if(atom.tuple[i].isConstantTerm())
+		{
+			string str=reg->getTermStringByID(atom.tuple[i]);
+			os<<removeQuotes(str);
+		}
+		else
+		{
+			os<<printToString<RawPrinter>(atom.tuple[i],reg);
+		}
+	}
+	string toReturn;
+	if(replaceReversibleOperator)
+	{
+		toReturn= replaceInvertibleOperator(os.str());
+	}
+	else
+	{
+		toReturn=os.str();
+	}
+	return toReturn;
+}
