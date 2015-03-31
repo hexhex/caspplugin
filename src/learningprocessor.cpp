@@ -12,6 +12,7 @@
 using namespace dlvhex;
 using namespace std;
 
+
 // TODO: add special case check for last constraint
 void NoLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions, vector<ID> atomIds, GecodeSolver* solver) {
 }
@@ -42,6 +43,7 @@ void DeletionLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<
 	BOOST_FOREACH(ID atomId, iis) {
 		nogood.insert(NogoodContainer::createLiteral(atomId));
 	}
+	nogoods->addNogood(nogood);
 }
 
 void ForwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions, vector<ID> atomIds,
@@ -204,10 +206,6 @@ void BackwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<
 		if (propagateIndex == -1)
 			break;
 
-//		cout<<"no good += "<<expressions[propagateIndex]<<endl;
-//
-//		cout<<"questo è l'atomo aggiunto:"<<printToString<RawPrinter>(atomIds[propagateIndex],reg)<<endl;
-//		cout<<"questo è l'id:"<<atomIds[propagateIndex]<<endl;
 		otherSolver->propagate(expressions[propagateIndex]);
 		iis.push_back(atomIds[propagateIndex]);
 

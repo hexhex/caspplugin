@@ -69,6 +69,7 @@ private:
 	ID _domID;
 	ID _maxID;
 	ID _minID;
+	ID _sumElementID;
 	bool _idSaved;
 
 	// store constraint atom id

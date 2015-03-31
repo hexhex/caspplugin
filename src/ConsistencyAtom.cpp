@@ -1,4 +1,5 @@
 #include "casp/ConsistencyAtom.h"
+#include <dlvhex2/OrdinaryAtomTable.h>
 using namespace casp;
 
 ConsistencyAtom::ConsistencyAtom(boost::shared_ptr<LearningProcessor> learningProcessor,
@@ -78,6 +79,30 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 	if (solutions.next()) {
 		Tuple out;
 		answer.get().push_back(out);
+
+		OrdinaryAtomTable::AddressIterator it, it_end;
+		boost::tie(it, it_end) = registry.ogatoms.getAllByAddress();
+
+		//iterate over all Ordinary ground atom
+		while(it!=it_end)
+		{
+			if(query.assigned->getFact(it_end-it))
+			{
+				it++;
+				continue;
+			}
+			//if the atom is not assigned, add true atom to lists in order to learn nogoods
+			const OrdinaryAtom& atom=*it;
+			if(atom.tuple[0]==_exprID)
+			{
+				expressions.push_back(getExpressionFromID(getRegistry(),atom,false));
+				atomIds.push_back(registry.ogatoms.getIDByTuple(atom.tuple));
+			}
+			it++;
+		}
+		GecodeSolver* otherSolver = new GecodeSolver(getRegistry(),sumData, domainMinValue,domainMaxValue, globalConstraintName, globalConstraintValue, _simpleParser);
+		//try to learn no goods
+		_learningProcessor->learnNogoods(nogoods,expressions,atomIds,otherSolver);
 	}
 	else if (nogoods != 0){ // otherwise we need to learn IIS from it
 		GecodeSolver* otherSolver = new GecodeSolver(getRegistry(),sumData, domainMinValue,domainMaxValue, globalConstraintName, globalConstraintValue, _simpleParser);
@@ -94,6 +119,7 @@ void ConsistencyAtom::storeID( dlvhex::Registry& registry)
 		_domID=registry.storeConstantTerm("domain");
 		_maxID=registry.storeConstantTerm("maximize");
 		_minID=registry.storeConstantTerm("minimize");
+		_sumElementID=registry.storeConstantTerm("sumElement");
 		_idSaved=true;
 }
 
