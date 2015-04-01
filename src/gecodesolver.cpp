@@ -19,8 +19,8 @@
 using namespace Gecode;
 using namespace std;
 
-GecodeSolver::GecodeSolver(dlvhex::RegistryPtr reg,vector<dlvhex::OrdinaryAtom> sumElement, int domainMinValue,int domainMaxValue, string globalConstraintName, string globalConstraintValue,
-		boost::shared_ptr<SimpleParser> simpleParser) :
+GecodeSolver::GecodeSolver(dlvhex::RegistryPtr reg,vector<dlvhex::OrdinaryAtom>& sumElement, int domainMinValue,int domainMaxValue, string globalConstraintName, string globalConstraintValue,
+		boost::shared_ptr<SimpleParser>& simpleParser) :
 		_reg(reg),
 		_simpleParser(simpleParser) {
 
@@ -43,7 +43,7 @@ GecodeSolver::GecodeSolver(dlvhex::RegistryPtr reg,vector<dlvhex::OrdinaryAtom> 
 	}
 }
 
-void GecodeSolver::propagate(vector<string> expressions) {
+void GecodeSolver::propagate(vector<string>& expressions) {
 	BOOST_FOREACH(string expression, expressions) {
 		propagate(expression);
 	}
@@ -66,7 +66,7 @@ Gecode::LinRel makeMainRelation(const Gecode::LinExpr& leftExpression, const Gec
 		throw dlvhex::PluginError("Unknown operator: " + value);
 }
 
-void GecodeSolver::propagate(string expression) {
+void GecodeSolver::propagate(string& expression) {
 	// If the expression is not specified, ignore it
 	// This could be the case for learning
 	if (expression == "")

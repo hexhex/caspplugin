@@ -20,8 +20,8 @@ using namespace std;
 class GecodeSolver: public Gecode::MaximizeSpace {
 public:
 	/// Actual model
-	GecodeSolver(dlvhex::RegistryPtr reg,vector<dlvhex::OrdinaryAtom> sumElement, int domainMaxValue,int domainMinValue, string globalConstraintName, string globalConstraintValue,
-			boost::shared_ptr<SimpleParser> simpleParser);
+	GecodeSolver(dlvhex::RegistryPtr reg,vector<dlvhex::OrdinaryAtom>& sumElement, int domainMaxValue,int domainMinValue, string globalConstraintName, string globalConstraintValue,
+			boost::shared_ptr<SimpleParser>& simpleParser);
 
 	GecodeSolver(bool share, GecodeSolver& s) :
 			Gecode::MaximizeSpace(share, s),
@@ -32,8 +32,8 @@ public:
 			_simpleParser(s._simpleParser) {
 	}
 
-	void propagate(vector<string> expressions);
-	void propagate(string expression);
+	void propagate(vector<string>& expressions);
+	void propagate(string& expression);
 
 	virtual Gecode::Space*
 	copy(bool share) {

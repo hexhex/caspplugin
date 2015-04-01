@@ -14,10 +14,10 @@ using namespace std;
 
 
 // TODO: add special case check for last constraint
-void NoLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions, vector<ID> atomIds, GecodeSolver* solver) {
+void NoLearningProcessor::learnNogoods(NogoodContainerPtr& nogoods, vector<string>& expressions, vector<ID>& atomIds, GecodeSolver* solver) {
 }
 
-void DeletionLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions, vector<ID> atomIds,
+void DeletionLearningProcessor::learnNogoods(NogoodContainerPtr& nogoods, vector<string>& expressions, vector<ID>& atomIds,
 		GecodeSolver* solver) {
 
 	vector<ID> iis;
@@ -46,7 +46,7 @@ void DeletionLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<
 	nogoods->addNogood(nogood);
 }
 
-void ForwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions, vector<ID> atomIds,
+void ForwardLearningProcessor::learnNogoods(NogoodContainerPtr& nogoods, vector<string>& expressions, vector<ID>& atomIds,
 		GecodeSolver* solver) {
 
 	GecodeSolver *otherSolver = static_cast<GecodeSolver*>(solver->clone());
@@ -103,7 +103,7 @@ void ForwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<s
 	nogoods->addNogood(nogood);
 }
 
-void JumpForwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions, vector<ID> atomIds,
+void JumpForwardLearningProcessor::learnNogoods(NogoodContainerPtr& nogoods, vector<string>& expressions, vector<ID>& atomIds,
 		GecodeSolver* solver) {
 
 	int jumpSize = 2;
@@ -163,7 +163,7 @@ void JumpForwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vect
 	nogoods->addNogood(nogood);
 }
 
-void BackwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions, vector<ID> atomIds,
+void BackwardLearningProcessor::learnNogoods(NogoodContainerPtr& nogoods, vector<string>& expressions, vector<ID>& atomIds,
 		GecodeSolver* solver) {
 
 	reverse(expressions.begin(), expressions.end());
@@ -223,7 +223,7 @@ void BackwardLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<
 	nogoods->addNogood(nogood);
 }
 
-void RangeLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions, vector<ID> atomIds,
+void RangeLearningProcessor::learnNogoods(NogoodContainerPtr& nogoods, vector<string>& expressions, vector<ID>& atomIds,
 		GecodeSolver* solver) {
 
 	reverse(expressions.begin(), expressions.end());
@@ -261,7 +261,7 @@ bool compareWeightedConstraints(pair<int, int> x, pair<int, int> y) {
 	return x.first > y.first;
 }
 
-void CCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions, vector<ID> atomIds, GecodeSolver* solver) {
+void CCLearningProcessor::learnNogoods(NogoodContainerPtr& nogoods, vector<string>& expressions, vector<ID>& atomIds, GecodeSolver* solver) {
 	GecodeSolver *otherSolver = static_cast<GecodeSolver*>(solver->clone());
 
 	vector<set<string> > expressionVariables(expressions.size());
@@ -343,7 +343,7 @@ void CCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string
 	nogoods->addNogood(nogood);
 }
 
-void WeightedCCLearningProcessor::learnNogoods(NogoodContainerPtr nogoods, vector<string> expressions, vector<ID> atomIds,
+void WeightedCCLearningProcessor::learnNogoods(NogoodContainerPtr& nogoods, vector<string>& expressions, vector<ID>& atomIds,
 		GecodeSolver* solver) {
 
 	GecodeSolver *otherSolver = static_cast<GecodeSolver*>(solver->clone());
