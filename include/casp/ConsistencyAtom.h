@@ -37,7 +37,7 @@ namespace casp {
 
 /**
  * @brief Defines the consistency atom of the plugin:
- * :- not casp&[dom, exprN, not_exprN, globalConstraints]
+ * :- not casp&[dom, expr, not_expr, globalConstraints,sumElement]
  */
 class ConsistencyAtom : public PluginAtom
 {
@@ -71,11 +71,16 @@ private:
 	ID _minID;
 	ID _sumElementID;
 	bool _idSaved;
+	PredicateMask _pm;
+	PredicateMask _pmNotExpr;
 
 	// store constraint atom id
-	void storeID( dlvhex::Registry& registry);
+	void storeID( RegistryPtr& registry);
 
-	string getExpressionFromID(RegistryPtr reg, const OrdinaryAtom& atom,bool replaceReversibleOperator );
+	void tryToLearnMore(RegistryPtr& reg,const InterpretationConstPtr& assigned,NogoodContainerPtr& nogoods,vector<string>& expression,vector<ID>& atomIds,
+			vector<OrdinaryAtom> &sumData,int domainMinValue,int domainMaxValue,string& globalConstraintName,string& globalConstraintValue);
+
+	string getExpressionFromID(RegistryPtr& reg, const OrdinaryAtom& atom,bool replaceReversibleOperator );
 };
 #endif /* CONSISTENCYATOM_H_ */
 }

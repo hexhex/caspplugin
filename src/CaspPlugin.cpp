@@ -325,7 +325,7 @@ struct sem<CASPParserModuleSemantics::caspRule>
 			//check the arity of argument of $sum
 			assert(sumElement.predicateArity!=-1 && sumElement.index.address<=sumElement.predicateArity);
 
-			OrdinaryAtom headAtom(ID::MAINKIND_ATOM);
+			OrdinaryAtom headAtom(ID::MAINKIND_ATOM | ID::SUBKIND_ATOM_ORDINARYN);
 			headAtom.tuple.push_back(reg->storeConstantTerm("sumElement"));
 			ID predicateID=reg->storeConstantTerm(sumElement.predicateName);
 			headAtom.tuple.push_back(predicateID);
@@ -333,7 +333,7 @@ struct sem<CASPParserModuleSemantics::caspRule>
 			headAtom.tuple.push_back(reg->storeVariableTerm("X"+boost::lexical_cast<string>(sumElement.index.address)));
 			rule.head.push_back(reg->storeOrdinaryAtom(headAtom));
 
-			OrdinaryAtom bodyAtom(ID::MAINKIND_ATOM);
+			OrdinaryAtom bodyAtom(ID::MAINKIND_ATOM | ID::SUBKIND_ATOM_ORDINARYN);
 			bodyAtom.tuple.push_back(predicateID);
 			for(int i=1;i<=sumElement.predicateArity;i++)
 			{
@@ -367,7 +367,7 @@ struct sem<CASPParserModuleSemantics::caspElement>
 
 		ID variable;
 
-		variable=getVariable(reg,boost::fusion::at_c<0>(source));
+		variable=getVariable(reg,atom,boost::fusion::at_c<0>(source));
 
 		atom.tuple.push_back(variable);
 
@@ -385,14 +385,14 @@ struct sem<CASPParserModuleSemantics::caspElement>
 				alreadyComparisonOperatorDefined=true;
 			}
 			atom.tuple.push_back(operatorID);
-			variable=getVariable(reg,boost::fusion::at_c<1>(v1));
+			variable=getVariable(reg,atom,boost::fusion::at_c<1>(v1));
 			atom.tuple.push_back(variable);
 		}
 		target=reg->storeOrdinaryAtom(atom);
 	}
 
 	//generate constant term from string or return ID of term
-	ID getVariable(RegistryPtr& reg,const boost::variant<dlvhex::ID, std::basic_string<char> >& variant)
+	ID getVariable(RegistryPtr& reg,OrdinaryAtom& atom,const boost::variant<dlvhex::ID, std::basic_string<char> >& variant)
 	{
 		ID toReturn;
 		if(const std::basic_string<char>* variable = boost::get< std::basic_string<char> >( &variant ))
@@ -401,6 +401,7 @@ struct sem<CASPParserModuleSemantics::caspElement>
 		}
 		else
 		{
+			atom.kind |=ID::SUBKIND_ATOM_ORDINARYN;
 			toReturn=*( boost::get< ID >( &variant ));
 		}
 		return toReturn;

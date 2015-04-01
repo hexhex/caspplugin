@@ -18,7 +18,7 @@ ConsistencyAtom::ConsistencyAtom(boost::shared_ptr<LearningProcessor> learningPr
 
 void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContainerPtr nogoods) throw (PluginError)
 {
-	Registry &registry = *getRegistry();
+	RegistryPtr registry = getRegistry();
 	std::vector<std::string> expressions;
 	std::vector<OrdinaryAtom> sumData;
 	int domainMaxValue;
@@ -37,19 +37,19 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 	// Iterate over all input interpretation
 	for (Interpretation::TrueBitIterator it = trueAtoms.first; it != trueAtoms.second; it++) {
 		const OrdinaryAtom &atom = query.assigned->getAtomToBit(it);
-		Term name = registry.terms.getByID(atom.tuple[0]);
+		Term name = registry->terms.getByID(atom.tuple[0]);
 		if(!query.interpretation->getFact(*it)){
 			continue;
 		}
 		string expr="";
 
 		if (atom.tuple[0]==_exprID) {
-			expressions.push_back(getExpressionFromID(getRegistry(),atom,false));
-			atomIds.push_back(registry.ogatoms.getIDByTuple(atom.tuple));
+			expressions.push_back(getExpressionFromID(registry,atom,false));
+			atomIds.push_back(registry->ogatoms.getIDByTuple(atom.tuple));
 		}
 		else if (atom.tuple[0]==_notExprID) {
-			expressions.push_back(getExpressionFromID(getRegistry(),atom,true));
-			atomIds.push_back(registry.ogatoms.getIDByTuple(atom.tuple));
+			expressions.push_back(getExpressionFromID(registry,atom,true));
+			atomIds.push_back(registry->ogatoms.getIDByTuple(atom.tuple));
 		}
 		else if (atom.tuple[0]==_domID) {
 			definedDomain=true;
@@ -58,7 +58,7 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 		}
 		else if (atom.tuple[0]==_maxID ||atom.tuple[0]==_minID) {
 			globalConstraintName = name.symbol;
-			globalConstraintValue = removeQuotes(registry.terms.getByID(atom.tuple[1]).symbol);
+			globalConstraintValue = removeQuotes(registry->terms.getByID(atom.tuple[1]).symbol);
 		}
 		else { // this predicate received as input to sum aggregate function
 			sumData.push_back(atom);
@@ -69,7 +69,7 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 		throw dlvhex::PluginError("No domain specified");
 
 	// Call gecode solver
-	GecodeSolver* solver = new GecodeSolver(getRegistry(),sumData,domainMinValue, domainMaxValue, globalConstraintName, globalConstraintValue, _simpleParser);
+	GecodeSolver* solver = new GecodeSolver(registry,sumData,domainMinValue, domainMaxValue, globalConstraintName, globalConstraintValue, _simpleParser);
 	solver->propagate(expressions);
 
 	Gecode::Search::Options opt;
@@ -79,52 +79,81 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 	if (solutions.next()) {
 		Tuple out;
 		answer.get().push_back(out);
-
-		OrdinaryAtomTable::AddressIterator it, it_end;
-		boost::tie(it, it_end) = registry.ogatoms.getAllByAddress();
-
-		//iterate over all Ordinary ground atom
-		while(it!=it_end)
-		{
-			if(query.assigned->getFact(it_end-it))
-			{
-				it++;
-				continue;
-			}
-			//if the atom is not assigned, add true atom to lists in order to learn nogoods
-			const OrdinaryAtom& atom=*it;
-			if(atom.tuple[0]==_exprID)
-			{
-				expressions.push_back(getExpressionFromID(getRegistry(),atom,false));
-				atomIds.push_back(registry.ogatoms.getIDByTuple(atom.tuple));
-			}
-			it++;
-		}
-		GecodeSolver* otherSolver = new GecodeSolver(getRegistry(),sumData, domainMinValue,domainMaxValue, globalConstraintName, globalConstraintValue, _simpleParser);
-		//try to learn no goods
-		_learningProcessor->learnNogoods(nogoods,expressions,atomIds,otherSolver);
+		tryToLearnMore(registry,query.assigned,nogoods,expressions,atomIds,sumData,domainMinValue,domainMaxValue,globalConstraintName,globalConstraintValue);
 	}
 	else if (nogoods != 0){ // otherwise we need to learn IIS from it
-		GecodeSolver* otherSolver = new GecodeSolver(getRegistry(),sumData, domainMinValue,domainMaxValue, globalConstraintName, globalConstraintValue, _simpleParser);
+		GecodeSolver* otherSolver = new GecodeSolver(registry,sumData, domainMinValue,domainMaxValue, globalConstraintName, globalConstraintValue, _simpleParser);
 		_learningProcessor->learnNogoods(nogoods, expressions, atomIds, otherSolver);
 		delete otherSolver;
 	}
 	delete solver;
 }
 
-void ConsistencyAtom::storeID( dlvhex::Registry& registry)
+
+void ConsistencyAtom::tryToLearnMore(RegistryPtr& registry,const InterpretationConstPtr& assigned,NogoodContainerPtr& nogoods,
+		vector<string>& expressions,vector<ID>& atomIds,vector<OrdinaryAtom> &sumData,int domainMinValue,int domainMaxValue,string& globalConstraintName,string& globalConstraintValue)
 {
-		_exprID=registry.storeConstantTerm("expr");
-		_notExprID=registry.storeConstantTerm("not_expr");
-		_domID=registry.storeConstantTerm("domain");
-		_maxID=registry.storeConstantTerm("maximize");
-		_minID=registry.storeConstantTerm("minimize");
-		_sumElementID=registry.storeConstantTerm("sumElement");
+	_pm.updateMask();
+	Interpretation::TrueBitIterator it, it_end;
+	boost::tie(it, it_end) = _pm.mask()->trueBits();
+	//iterate over all Ordinary ground atom (expr and not_expr)
+	for(;it!=it_end;it++)
+	{
+		//if the atom is not assigned, add atom to lists in order to check consistency
+		if(assigned->getFact(*it))
+		{
+			continue;
+		}
+		const OrdinaryAtom& atom=_pm.mask()->getAtomToBit(it);
+
+		if (atom.tuple[0]==_exprID) {
+			expressions.push_back(getExpressionFromID(registry,atom,false));
+			atomIds.push_back(registry->ogatoms.getIDByTuple(atom.tuple));
+		}
+		else if (atom.tuple[0]==_notExprID) {
+			expressions.push_back(getExpressionFromID(registry,atom,true));
+			atomIds.push_back(registry->ogatoms.getIDByTuple(atom.tuple));
+		}
+
+
+		GecodeSolver* solver = new GecodeSolver(registry,sumData,domainMinValue, domainMaxValue, globalConstraintName, globalConstraintValue, _simpleParser);
+		solver->propagate(expressions);
+
+		Gecode::Search::Options opt;
+		Gecode::BAB<GecodeSolver> solutions(solver,opt);
+
+		//if the solution is not consistent  try to learn nogoods
+		if (solutions.next()==NULL)
+		{
+			GecodeSolver* otherSolver = new GecodeSolver(registry,sumData, domainMinValue,domainMaxValue, globalConstraintName, globalConstraintValue, _simpleParser);
+			//try to learn no goods
+			_learningProcessor->learnNogoods(nogoods,expressions,atomIds,otherSolver);
+			delete otherSolver;
+		}
+		delete solver;
+		expressions.pop_back();
+		atomIds.pop_back();
+	}
+
+
+}
+
+void ConsistencyAtom::storeID( RegistryPtr& registry)
+{
+		_exprID=registry->storeConstantTerm("expr");
+		_notExprID=registry->storeConstantTerm("not_expr");
+		_domID=registry->storeConstantTerm("domain");
+		_maxID=registry->storeConstantTerm("maximize");
+		_minID=registry->storeConstantTerm("minimize");
+		_sumElementID=registry->storeConstantTerm("sumElement");
+		_pm.setRegistry(registry);
+		_pm.addPredicate(_exprID);
+		_pm.addPredicate(_notExprID);
 		_idSaved=true;
 }
 
 
-string ConsistencyAtom::getExpressionFromID(RegistryPtr reg, const OrdinaryAtom& atom,bool replaceReversibleOperator )
+string ConsistencyAtom::getExpressionFromID(RegistryPtr& reg, const OrdinaryAtom& atom,bool replaceReversibleOperator )
 {
 	ostringstream os;
 	for(int i=1;i<atom.tuple.size();i++)

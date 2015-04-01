@@ -1,7 +1,11 @@
 $domain(0..100).
 #maxint=300.
-num(4).
+num(299).
 
 p(X) :- #int(X), X>=0, X <= N, num(N).
 a:- p(X), X $> 2.
 b:- p(X), X $> 3.
+
+z:- $x $>40.
+
+zizzo:- $x $<30.
