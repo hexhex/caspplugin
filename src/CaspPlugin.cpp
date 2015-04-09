@@ -106,8 +106,12 @@ public HexGrammarSemantics
 public:
 	CASPPlugin::CtxData& ctxdata;
 	bool defineDomain;
-	ID expr;
-	ID not_expr;
+	ID domainAuxID;
+	ID maximizeAuxID;
+	ID minimizeAuxID;
+	ID sumElementAuxID;
+	ID exprAuxID;
+	ID not_exprAuxID;
 	vector<SumElement> sumPredicates;
 	int  previousSizeOfSumPredicates;
 
@@ -125,8 +129,13 @@ public:
 		possibleConflictID(cpVariableAndConnection.possibleConflictCpVariable),
 		cspGraphLearning(_cspGraphLearning)
 	{
-		expr=ctx.registry()->storeConstantTerm("expr");
-		not_expr=ctx.registry()->storeConstantTerm("not_expr");
+		RegistryPtr registry=ctx.registry();
+		domainAuxID=registry->getAuxiliaryConstantSymbol('t',ID::termFromInteger(0));
+		maximizeAuxID=registry->getAuxiliaryConstantSymbol('t',ID::termFromInteger(1));
+		minimizeAuxID=registry->getAuxiliaryConstantSymbol('t',ID::termFromInteger(2));
+		exprAuxID=registry->getAuxiliaryConstantSymbol('t',ID::termFromInteger(3));
+		not_exprAuxID=registry->getAuxiliaryConstantSymbol('t',ID::termFromInteger(4));
+		sumElementAuxID=registry->getAuxiliaryConstantSymbol('t',ID::termFromInteger(5));
 		previousSizeOfSumPredicates=0;
 		createCaspExternalAtom();
 	}
@@ -200,12 +209,12 @@ public:
 		Rule externalConstraint(ID::MAINKIND_RULE |ID::SUBKIND_RULE_CONSTRAINT |ID::PROPERTY_RULE_EXTATOMS);
 		ExternalAtom ext(ID::MAINKIND_ATOM | ID::SUBKIND_ATOM_EXTERNAL | ID::NAF_MASK);
 		ext.predicate=reg->storeConstantTerm("casp");
-		ext.inputs.push_back(reg->storeConstantTerm("domain"));
-		ext.inputs.push_back(reg->storeConstantTerm("maximize"));
-		ext.inputs.push_back(reg->storeConstantTerm("minimize"));
-		ext.inputs.push_back(expr);
-		ext.inputs.push_back(not_expr);
-		ext.inputs.push_back(reg->storeConstantTerm("sumElement"));
+		ext.inputs.push_back(domainAuxID);
+		ext.inputs.push_back(maximizeAuxID);
+		ext.inputs.push_back(minimizeAuxID);
+		ext.inputs.push_back(exprAuxID);
+		ext.inputs.push_back(not_exprAuxID);
+		ext.inputs.push_back(sumElementAuxID);
 		externalConstraint.body.push_back( ID::nafLiteralFromAtom(reg->eatoms.storeAndGetID(ext)));
 		ID extRuleID=reg->storeRule(externalConstraint);
 		ctx.idb.push_back(extRuleID);
@@ -275,7 +284,7 @@ struct sem<CASPParserModuleSemantics::caspRule>
 					if(id.isOrdinaryAtom())
 					{
 						OrdinaryAtom atom=reg->lookupOrdinaryAtom(id);
-						if(atom.tuple[0]==mgr.expr)
+						if(atom.tuple[0]==mgr.exprAuxID)
 						{
 							bodyCasp.push_back(id);
 						}
@@ -323,7 +332,7 @@ struct sem<CASPParserModuleSemantics::caspRule>
 			OrdinaryAtom notCaspAtom = reg->lookupOrdinaryAtom(id);
 			Term t = reg->terms.getByID(notCaspAtom.tuple[0]);
 			//set name not_expr
-			notCaspAtom.tuple[0]=mgr.not_expr;
+			notCaspAtom.tuple[0]=mgr.not_exprAuxID;
 
 
 			ID hid = reg->storeOrdinaryAtom(notCaspAtom);
@@ -359,7 +368,7 @@ struct sem<CASPParserModuleSemantics::caspRule>
 			assert(sumElement.predicateArity!=-1 && sumElement.index.address<=sumElement.predicateArity);
 
 			OrdinaryAtom headAtom(ID::MAINKIND_ATOM | ID::SUBKIND_ATOM_ORDINARYN);
-			headAtom.tuple.push_back(reg->storeConstantTerm("sumElement"));
+			headAtom.tuple.push_back(mgr.sumElementAuxID);
 			ID predicateID=reg->storeConstantTerm(sumElement.predicateName);
 			headAtom.tuple.push_back(predicateID);
 			headAtom.tuple.push_back(sumElement.index);
@@ -399,7 +408,7 @@ struct sem<CASPParserModuleSemantics::caspElement>
 
 		//result atom of caspElement
 		OrdinaryAtom atom(ID::MAINKIND_ATOM | ID::SUBKIND_ATOM_ORDINARYG);
-		atom.tuple.push_back(mgr.expr);
+		atom.tuple.push_back(mgr.exprAuxID);
 
 		ID variable;
 
@@ -539,16 +548,14 @@ struct sem<CASPParserModuleSemantics::caspDirective>
 			//domain must be defined one time
 			assert(!mgr.defineDomain);
 			mgr.defineDomain=true;
-			string directive= "domain";
 			OrdinaryAtom atom(ID::MAINKIND_ATOM);
-			ID directiveID=reg->storeConstantTerm(directive);
 			ID domainLowerBoudID =boost::fusion::at_c<0>(*upLowContainer);
 			ID domainUpperBoudID =boost::fusion::at_c<1>(*upLowContainer);
 
 			//domain must to have lower and upper bound as Integer
 			assert(domainLowerBoudID.isIntegerTerm() && domainUpperBoudID.isIntegerTerm());
 
-			atom.tuple.push_back(directiveID);
+			atom.tuple.push_back(mgr.domainAuxID);
 			atom.tuple.push_back(domainLowerBoudID);
 			atom.tuple.push_back(domainUpperBoudID);
 			target=reg->storeOrdinaryAtom(atom);
@@ -588,17 +595,20 @@ struct sem<CASPParserModuleSemantics::caspGlobalConstraint>
 
 		//read argument
 		boost::fusion::vector2<char, std::vector<char, std::allocator<char> > > v=boost::fusion::at_c<1>(source);
-		string predicateName;
-		predicateName+=boost::fusion::at_c<0>(v);
+		string variableName;
+		variableName+=boost::fusion::at_c<0>(v);
 		std::vector<char, std::allocator<char> > chars=boost::fusion::at_c<1>(v);
 		for(int i=0;i<chars.size();i++)
-			predicateName+=chars[i];
+			variableName+=chars[i];
 
-		ID predicateID=reg->storeConstantTerm("\""+predicateName+"\"");
+		ID predicateID=reg->storeConstantTerm("\""+variableName+"\"");
 
 		//create atom $directive("namePredicate")
 		OrdinaryAtom atom(ID::MAINKIND_ATOM);
-		atom.tuple.push_back(reg->storeConstantTerm(directive));
+		if(directive=="maximize")
+			atom.tuple.push_back(mgr.maximizeAuxID);
+		else
+			atom.tuple.push_back(mgr.minimizeAuxID);
 		atom.tuple.push_back(predicateID);
 		target=reg->storeOrdinaryAtom(atom);
 	}

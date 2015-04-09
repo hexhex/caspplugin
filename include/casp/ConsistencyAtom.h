@@ -44,7 +44,7 @@ struct CPVariableAndConnection{
 };
 /**
  * @brief Defines the consistency atom of the plugin:
- * :- not casp&[dom, expr, not_expr, globalConstraints,sumElement]
+ * :- not casp&[domain, globalConstraints, expr, not_expr,sumElement]
  */
 class ConsistencyAtom : public PluginAtom
 {
@@ -53,7 +53,7 @@ public:
 	 * Simple constuctor, which accepts option for IIS learning
 	 */
 	ConsistencyAtom(boost::shared_ptr<LearningProcessor> learningProcessor,
-			boost::shared_ptr<SimpleParser> simpleParserm,const CPVariableAndConnection& cpVariableAndConnection,bool cspGraphLearning);
+			boost::shared_ptr<SimpleParser> simpleParser,const CPVariableAndConnection& cpVariableAndConnection,bool cspGraphLearning);
 	/**
 	 * @brief Retrieves answer for query.
 	 * Should not be called, as learning is enabled.
@@ -69,21 +69,21 @@ public:
 	virtual void retrieve(const Query& query, Answer& answer, NogoodContainerPtr nogoods) throw (PluginError);
 
 private:
-	boost::shared_ptr<LearningProcessor> _learningProcessor;
-	boost::shared_ptr<SimpleParser> _simpleParser;
+	boost::shared_ptr<LearningProcessor> learningProcessor;
+	boost::shared_ptr<SimpleParser> simpleParser;
 
-	bool _cspGraphLearning;
-	const Interpretation& _cpVariables;
-	const MapPossibleConflict& _possibleConflictCpVariable;
+	bool cspGraphLearning;
+	const Interpretation& cpVariables;
+	const MapPossibleConflict& possibleConflictCpVariable;
 
-	ID _exprID;
-	ID _notExprID;
-	ID _domID;
-	ID _maxID;
-	ID _minID;
-	ID _sumElementID;
-	bool _idSaved;
-	PredicateMask _pm;
+	ID exprAuxID;
+	ID not_exprAuxID;
+	ID domainAuxID;
+	ID maximizeAuxID;
+	ID minimizeAuxID;
+	ID sumElementAuxID;
+	bool idSaved;
+	PredicateMask pm;
 
 	// store constraint atom id
 	void storeID( RegistryPtr& registry);

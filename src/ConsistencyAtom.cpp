@@ -5,11 +5,12 @@ using namespace casp;
 ConsistencyAtom::ConsistencyAtom(boost::shared_ptr<LearningProcessor> learningProcessor,
 		boost::shared_ptr<SimpleParser> simpleParser,const CPVariableAndConnection& cpVariableAndConnection,bool cspGraphLearning) :
 		PluginAtom( "casp", 0),
-		_learningProcessor(learningProcessor),
-		_simpleParser(simpleParser),_idSaved(false),
-		_cpVariables(cpVariableAndConnection.cpVariable),
-		_possibleConflictCpVariable(cpVariableAndConnection.possibleConflictCpVariable),
-		_cspGraphLearning(cspGraphLearning)
+		learningProcessor(learningProcessor),
+		simpleParser(simpleParser),
+		idSaved(false),
+		cpVariables(cpVariableAndConnection.cpVariable),
+		possibleConflictCpVariable(cpVariableAndConnection.possibleConflictCpVariable),
+		cspGraphLearning(cspGraphLearning)
 {
 	// This add predicates for all input parameters
 	for (int i = 0; i < 6; i++)
@@ -36,7 +37,7 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 	trueAtoms = query.assigned->trueBits();
 
 	vector<ID> atomIds;
-	if(!_idSaved)
+	if(!idSaved)
 		storeID(registry);
 
 	// Iterate over all input interpretation
@@ -48,39 +49,39 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 		}
 		string expr="";
 
-		if (atom.tuple[0]==_exprID) {
+		if (atom.tuple[0]==exprAuxID) {
 			expressions.push_back(getExpressionFromID(registry,atom,false));
 			ID atomID=registry->ogatoms.getIDByTuple(atom.tuple);
 			atomIds.push_back(atomID);
-			if(_cspGraphLearning && _possibleConflictCpVariable.find(atomID)!=_possibleConflictCpVariable.end())
+			if(cspGraphLearning && possibleConflictCpVariable.find(atomID)!=possibleConflictCpVariable.end())
 			{
-				set< Interpretation* > s=_possibleConflictCpVariable.at(atomID);
+				set< Interpretation* > s=possibleConflictCpVariable.at(atomID);
 				for( set<Interpretation*>::iterator it=s.begin();it!=s.end();++it)
 				{
 					toCheck.add(**it);
 				}
 			}
 		}
-		else if (atom.tuple[0]==_notExprID) {
+		else if (atom.tuple[0]==not_exprAuxID) {
 			expressions.push_back(getExpressionFromID(registry,atom,true));
 			ID atomID=registry->ogatoms.getIDByTuple(atom.tuple);
 			atomIds.push_back(atomID);
 			// if the atom doesn't contain ASP variables insert all atom that are possible conflict
-			if(_cspGraphLearning && _possibleConflictCpVariable.find(atomID)!=_possibleConflictCpVariable.end())
+			if(cspGraphLearning && possibleConflictCpVariable.find(atomID)!=possibleConflictCpVariable.end())
 			{
-				set< Interpretation* > s=_possibleConflictCpVariable.at(atomID);
+				set< Interpretation* > s=possibleConflictCpVariable.at(atomID);
 				for( set<Interpretation*>::iterator it=s.begin();it!=s.end();++it)
 				{
 					toCheck.add(**it);
 				}
 			}
 		}
-		else if (atom.tuple[0]==_domID) {
+		else if (atom.tuple[0]==domainAuxID) {
 			definedDomain=true;
 			domainMinValue=atom.tuple[1].address;
 			domainMaxValue=atom.tuple[2].address;;
 		}
-		else if (atom.tuple[0]==_maxID ||atom.tuple[0]==_minID) {
+		else if (atom.tuple[0]==maximizeAuxID ||atom.tuple[0]==minimizeAuxID) {
 			globalConstraintName = name.symbol;
 			globalConstraintValue = removeQuotes(registry->terms.getByID(atom.tuple[1]).symbol);
 		}
@@ -93,7 +94,7 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 		throw dlvhex::PluginError("No domain specified");
 
 //	 Call gecode solver
-	GecodeSolver* solver = new GecodeSolver(registry,sumData,domainMinValue, domainMaxValue, globalConstraintName, globalConstraintValue, _simpleParser);
+	GecodeSolver* solver = new GecodeSolver(registry,sumData,domainMinValue, domainMaxValue, globalConstraintName, globalConstraintValue, simpleParser);
 	solver->propagate(expressions);
 
 	Gecode::Search::Options opt;
@@ -106,8 +107,8 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 		tryToLearnMore(registry,query.assigned,nogoods,expressions,atomIds,sumData,domainMinValue,domainMaxValue,globalConstraintName,globalConstraintValue,toCheck);
 	}
 	else if (nogoods != 0){ // otherwise we need to learn IIS from it
-		GecodeSolver* otherSolver = new GecodeSolver(registry,sumData, domainMinValue,domainMaxValue, globalConstraintName, globalConstraintValue, _simpleParser);
-		_learningProcessor->learnNogoods(nogoods, expressions, atomIds, otherSolver);
+		GecodeSolver* otherSolver = new GecodeSolver(registry,sumData, domainMinValue,domainMaxValue, globalConstraintName, globalConstraintValue, simpleParser);
+		learningProcessor->learnNogoods(nogoods, expressions, atomIds, otherSolver);
 		delete otherSolver;
 	}
 	delete solver;
@@ -117,9 +118,9 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 void ConsistencyAtom::tryToLearnMore(RegistryPtr& registry,const InterpretationConstPtr& assigned,NogoodContainerPtr& nogoods,
 		vector<string>& expressions,vector<ID>& atomIds,vector<OrdinaryAtom> &sumData,int domainMinValue,int domainMaxValue,string& globalConstraintName,string& globalConstraintValue,Interpretation& toCheck)
 {
-	_pm.updateMask();
+	pm.updateMask();
 	Interpretation::TrueBitIterator it, it_end;
-	boost::tie(it, it_end) = _pm.mask()->trueBits();
+	boost::tie(it, it_end) = pm.mask()->trueBits();
 	//iterate over all Ordinary ground atom (expr and not_expr)
 	for(;it!=it_end;it++)
 	{
@@ -128,19 +129,19 @@ void ConsistencyAtom::tryToLearnMore(RegistryPtr& registry,const InterpretationC
 		{
 			continue;
 		}
-		const OrdinaryAtom& atom=_pm.mask()->getAtomToBit(it);
+		const OrdinaryAtom& atom=pm.mask()->getAtomToBit(it);
 
-		if (atom.tuple[0]==_exprID && (!_cspGraphLearning || !_cpVariables.getFact(*it) || toCheck.getFact(*it))) {
+		if (atom.tuple[0]==exprAuxID && (!cspGraphLearning || !cpVariables.getFact(*it) || toCheck.getFact(*it))) {
 			expressions.push_back(getExpressionFromID(registry,atom,false));
 			atomIds.push_back(registry->ogatoms.getIDByTuple(atom.tuple));
 		}
-		else if (atom.tuple[0]==_notExprID && (!_cspGraphLearning ||!_cpVariables.getFact(*it) || toCheck.getFact(*it))) {
+		else if (atom.tuple[0]==not_exprAuxID && (!cspGraphLearning ||!cpVariables.getFact(*it) || toCheck.getFact(*it))) {
 			expressions.push_back(getExpressionFromID(registry,atom,true));
 			atomIds.push_back(registry->ogatoms.getIDByTuple(atom.tuple));
 		}
 
 
-		GecodeSolver* solver = new GecodeSolver(registry,sumData,domainMinValue, domainMaxValue, globalConstraintName, globalConstraintValue, _simpleParser);
+		GecodeSolver* solver = new GecodeSolver(registry,sumData,domainMinValue, domainMaxValue, globalConstraintName, globalConstraintValue, simpleParser);
 		solver->propagate(expressions);
 
 		Gecode::Search::Options opt;
@@ -149,9 +150,9 @@ void ConsistencyAtom::tryToLearnMore(RegistryPtr& registry,const InterpretationC
 		//if the solution is not consistent  try to learn nogoods
 		if (solutions.next()==NULL)
 		{
-			GecodeSolver* otherSolver = new GecodeSolver(registry,sumData, domainMinValue,domainMaxValue, globalConstraintName, globalConstraintValue, _simpleParser);
+			GecodeSolver* otherSolver = new GecodeSolver(registry,sumData, domainMinValue,domainMaxValue, globalConstraintName, globalConstraintValue, simpleParser);
 			//try to learn no goods
-			_learningProcessor->learnNogoods(nogoods,expressions,atomIds,otherSolver);
+			learningProcessor->learnNogoods(nogoods,expressions,atomIds,otherSolver);
 			delete otherSolver;
 		}
 		delete solver;
@@ -164,16 +165,16 @@ void ConsistencyAtom::tryToLearnMore(RegistryPtr& registry,const InterpretationC
 
 void ConsistencyAtom::storeID( RegistryPtr& registry)
 {
-		_exprID=registry->storeConstantTerm("expr");
-		_notExprID=registry->storeConstantTerm("not_expr");
-		_domID=registry->storeConstantTerm("domain");
-		_maxID=registry->storeConstantTerm("maximize");
-		_minID=registry->storeConstantTerm("minimize");
-		_sumElementID=registry->storeConstantTerm("sumElement");
-		_pm.setRegistry(registry);
-		_pm.addPredicate(_exprID);
-		_pm.addPredicate(_notExprID);
-		_idSaved=true;
+	domainAuxID=registry->getAuxiliaryConstantSymbol('t',ID::termFromInteger(0));
+	maximizeAuxID=registry->getAuxiliaryConstantSymbol('t',ID::termFromInteger(1));
+	minimizeAuxID=registry->getAuxiliaryConstantSymbol('t',ID::termFromInteger(2));
+	exprAuxID=registry->getAuxiliaryConstantSymbol('t',ID::termFromInteger(3));
+	not_exprAuxID=registry->getAuxiliaryConstantSymbol('t',ID::termFromInteger(4));
+	sumElementAuxID=registry->getAuxiliaryConstantSymbol('t',ID::termFromInteger(5));
+	pm.setRegistry(registry);
+	pm.addPredicate(exprAuxID);
+	pm.addPredicate(not_exprAuxID);
+	idSaved=true;
 }
 
 
