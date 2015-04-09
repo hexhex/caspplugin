@@ -1,6 +1,5 @@
 #include "casp/CaspPlugin.h"
 #include <boost/unordered_map.hpp>
-#include <boost/unordered_set.hpp>
 
 DLVHEX_NAMESPACE_BEGIN
 
@@ -113,9 +112,9 @@ public:
 	int  previousSizeOfSumPredicates;
 
 	bool cspGraphLearning;
-	boost::unordered_map <string,SetID > possibleConflictVariable;
+	boost::unordered_map <string,Interpretation > possibleConflictVariable;
 	MapPossibleConflict& possibleConflictID;
-	SetID& cpVariable;
+	Interpretation& cpVariable;
 
 public:
 	CASPParserModuleSemantics(ProgramCtx& ctx,CPVariableAndConnection& cpVariableAndConnection,bool _cspGraphLearning):
@@ -332,11 +331,11 @@ struct sem<CASPParserModuleSemantics::caspRule>
 			// if the atom haven't ASP variables map also the not_expr atom
 			if(mgr.cspGraphLearning && mgr.possibleConflictID.find(id)!=mgr.possibleConflictID.end())
 			{
-				set<SetID*>& toFull=mgr.possibleConflictID[hid];
-				for(set<SetID*>::iterator it=mgr.possibleConflictID[id].begin();it!=mgr.possibleConflictID[id].end();++it)
+				set<Interpretation*>& toFill=mgr.possibleConflictID[hid];
+				for(set<Interpretation*>::iterator it=mgr.possibleConflictID[id].begin();it!=mgr.possibleConflictID[id].end();++it)
 				{
-					(*it)->insert(hid);
-					toFull.insert(*it);
+					(*it)->setFact(hid.address);
+					toFill.insert(*it);
 				}
 			}
 
@@ -431,14 +430,14 @@ struct sem<CASPParserModuleSemantics::caspElement>
 		if(!ASPVariable)
 		{
 			//insert atom in the conflict set
-			set< SetID* >& conflictSet=mgr.possibleConflictID[target];
+			set< Interpretation* >& conflictSet=mgr.possibleConflictID[target];
 			for(boost::unordered_set<string>::iterator i=listCASPVariables.begin();i!=listCASPVariables.end();i++)
 			{
-				SetID& s=mgr.possibleConflictVariable[*i];
-				s.insert(target);
+				Interpretation& s=mgr.possibleConflictVariable[*i];
+				s.setFact(target.address);
 				conflictSet.insert(&s);
 			}
-			mgr.cpVariable.insert(target);
+			mgr.cpVariable.setFact(target.address);
 		}
 	}
 

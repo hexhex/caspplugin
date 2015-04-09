@@ -21,7 +21,7 @@ ConsistencyAtom::ConsistencyAtom(boost::shared_ptr<LearningProcessor> learningPr
 
 void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContainerPtr nogoods) throw (PluginError)
 {
-	SetID toCheck;
+	Interpretation toCheck;
 
 	RegistryPtr registry = getRegistry();
 	std::vector<std::string> expressions;
@@ -54,10 +54,10 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 			atomIds.push_back(atomID);
 			if(_cspGraphLearning && _possibleConflictCpVariable.find(atomID)!=_possibleConflictCpVariable.end())
 			{
-				set< SetID* > s=_possibleConflictCpVariable.at(atomID);
-				for( set<SetID*>::iterator it=s.begin();it!=s.end();++it)
+				set< Interpretation* > s=_possibleConflictCpVariable.at(atomID);
+				for( set<Interpretation*>::iterator it=s.begin();it!=s.end();++it)
 				{
-					toCheck.insert((*it)->begin(),(*it)->end());
+					toCheck.add(**it);
 				}
 			}
 		}
@@ -68,10 +68,10 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 			// if the atom doesn't contain ASP variables insert all atom that are possible conflict
 			if(_cspGraphLearning && _possibleConflictCpVariable.find(atomID)!=_possibleConflictCpVariable.end())
 			{
-				set< SetID* > s=_possibleConflictCpVariable.at(atomID);
-				for( set<SetID*>::iterator it=s.begin();it!=s.end();++it)
+				set< Interpretation* > s=_possibleConflictCpVariable.at(atomID);
+				for( set<Interpretation*>::iterator it=s.begin();it!=s.end();++it)
 				{
-					toCheck.insert((*it)->begin(),(*it)->end());
+					toCheck.add(**it);
 				}
 			}
 		}
@@ -115,7 +115,7 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 
 
 void ConsistencyAtom::tryToLearnMore(RegistryPtr& registry,const InterpretationConstPtr& assigned,NogoodContainerPtr& nogoods,
-		vector<string>& expressions,vector<ID>& atomIds,vector<OrdinaryAtom> &sumData,int domainMinValue,int domainMaxValue,string& globalConstraintName,string& globalConstraintValue,SetID& toCheck)
+		vector<string>& expressions,vector<ID>& atomIds,vector<OrdinaryAtom> &sumData,int domainMinValue,int domainMaxValue,string& globalConstraintName,string& globalConstraintValue,Interpretation& toCheck)
 {
 	_pm.updateMask();
 	Interpretation::TrueBitIterator it, it_end;
@@ -129,14 +129,12 @@ void ConsistencyAtom::tryToLearnMore(RegistryPtr& registry,const InterpretationC
 			continue;
 		}
 		const OrdinaryAtom& atom=_pm.mask()->getAtomToBit(it);
-		ID atomID=registry->ogatoms.getIDByAddress(*it);
 
-		if (atom.tuple[0]==_exprID && (!_cspGraphLearning || _cpVariables.find(atomID)==_cpVariables.end() || toCheck.find(atomID)!=toCheck.end())) {
+		if (atom.tuple[0]==_exprID && (!_cspGraphLearning || !_cpVariables.getFact(*it) || toCheck.getFact(*it))) {
 			expressions.push_back(getExpressionFromID(registry,atom,false));
 			atomIds.push_back(registry->ogatoms.getIDByTuple(atom.tuple));
-
 		}
-		else if (atom.tuple[0]==_notExprID && (!_cspGraphLearning || _cpVariables.find(atomID)==_cpVariables.end() || toCheck.find(atomID)!=toCheck.end())) {
+		else if (atom.tuple[0]==_notExprID && (!_cspGraphLearning ||!_cpVariables.getFact(*it) || toCheck.getFact(*it))) {
 			expressions.push_back(getExpressionFromID(registry,atom,true));
 			atomIds.push_back(registry->ogatoms.getIDByTuple(atom.tuple));
 		}

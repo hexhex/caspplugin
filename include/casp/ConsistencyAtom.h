@@ -36,11 +36,10 @@ namespace dlvhex {
 namespace casp {
 
 
-typedef set <ID> SetID;
-typedef boost::unordered_map <ID,set < SetID* > > MapPossibleConflict;
+typedef boost::unordered_map <ID,set < Interpretation* > > MapPossibleConflict;
 
 struct CPVariableAndConnection{
-	SetID cpVariable;
+	Interpretation cpVariable;
 	MapPossibleConflict possibleConflictCpVariable;
 };
 /**
@@ -74,7 +73,7 @@ private:
 	boost::shared_ptr<SimpleParser> _simpleParser;
 
 	bool _cspGraphLearning;
-	const SetID& _cpVariables;
+	const Interpretation& _cpVariables;
 	const MapPossibleConflict& _possibleConflictCpVariable;
 
 	ID _exprID;
@@ -90,7 +89,7 @@ private:
 	void storeID( RegistryPtr& registry);
 
 	void tryToLearnMore(RegistryPtr& reg,const InterpretationConstPtr& assigned,NogoodContainerPtr& nogoods,vector<string>& expression,vector<ID>& atomIds,
-			vector<OrdinaryAtom> &sumData,int domainMinValue,int domainMaxValue,string& globalConstraintName,string& globalConstraintValue,SetID& toCheck);
+			vector<OrdinaryAtom> &sumData,int domainMinValue,int domainMaxValue,string& globalConstraintName,string& globalConstraintValue,Interpretation& toCheck);
 
 	string getExpressionFromID(RegistryPtr& reg, const OrdinaryAtom& atom,bool replaceReversibleOperator );
 };
