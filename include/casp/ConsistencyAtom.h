@@ -35,6 +35,14 @@
 namespace dlvhex {
 namespace casp {
 
+
+typedef set <ID> SetID;
+typedef boost::unordered_map <ID,set < SetID* > > MapPossibleConflict;
+
+struct CPVariableAndConnection{
+	SetID cpVariable;
+	MapPossibleConflict possibleConflictCpVariable;
+};
 /**
  * @brief Defines the consistency atom of the plugin:
  * :- not casp&[dom, expr, not_expr, globalConstraints,sumElement]
@@ -46,7 +54,7 @@ public:
 	 * Simple constuctor, which accepts option for IIS learning
 	 */
 	ConsistencyAtom(boost::shared_ptr<LearningProcessor> learningProcessor,
-			boost::shared_ptr<SimpleParser> simpleParser);
+			boost::shared_ptr<SimpleParser> simpleParserm,const CPVariableAndConnection& cpVariableAndConnection,bool cspGraphLearning);
 	/**
 	 * @brief Retrieves answer for query.
 	 * Should not be called, as learning is enabled.
@@ -64,6 +72,11 @@ public:
 private:
 	boost::shared_ptr<LearningProcessor> _learningProcessor;
 	boost::shared_ptr<SimpleParser> _simpleParser;
+
+	bool _cspGraphLearning;
+	const SetID& _cpVariables;
+	const MapPossibleConflict& _possibleConflictCpVariable;
+
 	ID _exprID;
 	ID _notExprID;
 	ID _domID;
@@ -72,13 +85,12 @@ private:
 	ID _sumElementID;
 	bool _idSaved;
 	PredicateMask _pm;
-	PredicateMask _pmNotExpr;
 
 	// store constraint atom id
 	void storeID( RegistryPtr& registry);
 
 	void tryToLearnMore(RegistryPtr& reg,const InterpretationConstPtr& assigned,NogoodContainerPtr& nogoods,vector<string>& expression,vector<ID>& atomIds,
-			vector<OrdinaryAtom> &sumData,int domainMinValue,int domainMaxValue,string& globalConstraintName,string& globalConstraintValue);
+			vector<OrdinaryAtom> &sumData,int domainMinValue,int domainMaxValue,string& globalConstraintName,string& globalConstraintValue,SetID& toCheck);
 
 	string getExpressionFromID(RegistryPtr& reg, const OrdinaryAtom& atom,bool replaceReversibleOperator );
 };

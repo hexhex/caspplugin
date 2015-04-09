@@ -1,4 +1,6 @@
 #include "casp/CaspPlugin.h"
+#include <boost/unordered_map.hpp>
+#include <boost/unordered_set.hpp>
 
 DLVHEX_NAMESPACE_BEGIN
 
@@ -8,7 +10,8 @@ namespace qi = boost::spirit::qi;
 
 CASPPlugin::CASPPlugin() :
 				_simpleParser(new SimpleParser()),
-				_learningProcessor(new NoLearningProcessor(_simpleParser))
+				_learningProcessor(new NoLearningProcessor(_simpleParser)),
+				cspGraphLearning(false)
 {
 	setNameVersion(PACKAGE_TARNAME,CASPPLUGIN_VERSION_MAJOR,CASPPLUGIN_VERSION_MINOR,CASPPLUGIN_VERSION_MICRO);
 }
@@ -26,6 +29,9 @@ void CASPPlugin::printUsage(std::ostream& o) const
 	o << "                   range       - Range filtering learning." << endl;
 	o << "                   cc          - Connected component filtering learning." << endl;
 	o << "                   wcc         - Weighted connected component filtering learning." << endl;
+	o << "     --cspgraphlearning"<<endl;
+	o << "                   Enable csp graph learning(disabled by default)." << endl;
+	o << "                   Enable only if --cspleanirng!=none" << endl;
 }
 void CASPPlugin::
 processOptions(std::list<const char*>& pluginOptions, ProgramCtx& ctx)
@@ -72,6 +78,12 @@ processOptions(std::list<const char*>& pluginOptions, ProgramCtx& ctx)
 				throw PluginError("Unrecognized option for --csplearning: " + processorName);
 			it = pluginOptions.erase(it);
 		}
+
+		else if(option.find("--cspgraphlearning")!= std::string::npos)
+		{
+			cspGraphLearning=true;
+			it= pluginOptions.erase(it);
+		}
 		else
 			it++;
 	}
@@ -93,18 +105,26 @@ class CASPParserModuleSemantics:
 public HexGrammarSemantics
 {
 public:
-	CASPPlugin caspPlugin;
 	CASPPlugin::CtxData& ctxdata;
 	bool defineDomain;
 	ID expr;
 	ID not_expr;
 	vector<SumElement> sumPredicates;
 	int  previousSizeOfSumPredicates;
+
+	bool cspGraphLearning;
+	boost::unordered_map <string,SetID > possibleConflictVariable;
+	MapPossibleConflict& possibleConflictID;
+	SetID& cpVariable;
+
 public:
-	CASPParserModuleSemantics(ProgramCtx& ctx):
+	CASPParserModuleSemantics(ProgramCtx& ctx,CPVariableAndConnection& cpVariableAndConnection,bool _cspGraphLearning):
 		HexGrammarSemantics(ctx),
 		ctxdata(ctx.getPluginData<CASPPlugin>()),
-		defineDomain(false)
+		defineDomain(false),
+		cpVariable(cpVariableAndConnection.cpVariable),
+		possibleConflictID(cpVariableAndConnection.possibleConflictCpVariable),
+		cspGraphLearning(_cspGraphLearning)
 	{
 		expr=ctx.registry()->storeConstantTerm("expr");
 		not_expr=ctx.registry()->storeConstantTerm("not_expr");
@@ -293,6 +313,9 @@ struct sem<CASPParserModuleSemantics::caspRule>
 		//create guessing rule
 		BOOST_FOREACH(const ID& id, bodyCasp)
 		{
+
+
+
 			Rule guessingRule(ID::MAINKIND_RULE | ID::SUBKIND_RULE_REGULAR | ID::PROPERTY_RULE_DISJ);
 			guessingRule.body.insert(guessingRule.body.end(),bodyWithoutCasp.begin(),bodyWithoutCasp.end());
 
@@ -305,6 +328,17 @@ struct sem<CASPParserModuleSemantics::caspRule>
 
 
 			ID hid = reg->storeOrdinaryAtom(notCaspAtom);
+
+			// if the atom haven't ASP variables map also the not_expr atom
+			if(mgr.cspGraphLearning && mgr.possibleConflictID.find(id)!=mgr.possibleConflictID.end())
+			{
+				set<SetID*>& toFull=mgr.possibleConflictID[hid];
+				for(set<SetID*>::iterator it=mgr.possibleConflictID[id].begin();it!=mgr.possibleConflictID[id].end();++it)
+				{
+					(*it)->insert(hid);
+					toFull.insert(*it);
+				}
+			}
 
 			guessingRule.head.push_back(hid);
 
@@ -358,16 +392,19 @@ struct sem<CASPParserModuleSemantics::caspElement>
 			std::allocator<boost::fusion::vector2<dlvhex::ID, boost::variant<dlvhex::ID, std::basic_string<char> > > > > > & source,
 			ID& target)
 	{
+		boost::unordered_set<string> listCASPVariables;
+		bool ASPVariable=!mgr.cspGraphLearning;
 		bool alreadyComparisonOperatorDefined=false;
 		RegistryPtr reg = mgr.ctx.registry();
 
+
 		//result atom of caspElement
-		OrdinaryAtom atom(ID::MAINKIND_ATOM);
+		OrdinaryAtom atom(ID::MAINKIND_ATOM | ID::SUBKIND_ATOM_ORDINARYG);
 		atom.tuple.push_back(mgr.expr);
 
 		ID variable;
 
-		variable=getVariable(reg,atom,boost::fusion::at_c<0>(source));
+		variable=getVariable(reg,atom,boost::fusion::at_c<0>(source),ASPVariable,listCASPVariables);
 
 		atom.tuple.push_back(variable);
 
@@ -385,24 +422,46 @@ struct sem<CASPParserModuleSemantics::caspElement>
 				alreadyComparisonOperatorDefined=true;
 			}
 			atom.tuple.push_back(operatorID);
-			variable=getVariable(reg,atom,boost::fusion::at_c<1>(v1));
+			variable=getVariable(reg,atom,boost::fusion::at_c<1>(v1),ASPVariable,listCASPVariables);
 			atom.tuple.push_back(variable);
 		}
 		target=reg->storeOrdinaryAtom(atom);
+
+		//if there isn't ASPVariable, define possible conflict
+		if(!ASPVariable)
+		{
+			//insert atom in the conflict set
+			set< SetID* >& conflictSet=mgr.possibleConflictID[target];
+			for(boost::unordered_set<string>::iterator i=listCASPVariables.begin();i!=listCASPVariables.end();i++)
+			{
+				SetID& s=mgr.possibleConflictVariable[*i];
+				s.insert(target);
+				conflictSet.insert(&s);
+			}
+			mgr.cpVariable.insert(target);
+		}
 	}
 
 	//generate constant term from string or return ID of term
-	ID getVariable(RegistryPtr& reg,OrdinaryAtom& atom,const boost::variant<dlvhex::ID, std::basic_string<char> >& variant)
+	ID getVariable(RegistryPtr& reg,OrdinaryAtom& atom,const boost::variant<dlvhex::ID, std::basic_string<char> >& variant,bool& ASPVariable,boost::unordered_set<string>& listCASPVariables)
 	{
 		ID toReturn;
 		if(const std::basic_string<char>* variable = boost::get< std::basic_string<char> >( &variant ))
 		{
 			toReturn=reg->storeConstantTerm("\""+*variable+"\"");
+			if(!ASPVariable)
+			{
+				listCASPVariables.insert(*variable);
+			}
 		}
 		else
 		{
-			atom.kind |=ID::SUBKIND_ATOM_ORDINARYN;
 			toReturn=*( boost::get< ID >( &variant ));
+			if(toReturn.isVariableTerm())
+			{
+				atom.kind|=ID::SUBKIND_ATOM_ORDINARYN;
+				ASPVariable=true;
+			}
 		}
 		return toReturn;
 	}
@@ -563,7 +622,7 @@ public HexGrammarBase<Iterator, Skipper>
 	{
 		typedef CASPParserModuleSemantics Sem;
 		caspRule
-		= (caspDirective | ((Base::headAtom % qi::lit("|") ) || (qi::lit(":-") > (( caspElement | Base::bodyLiteral ) % qi::char_(',')) )) >> qi::lit('.') ) [ Sem::caspRule(sem) ];
+		= (caspDirective | ((( caspElement | Base::headAtom )   % qi::lit("|") ) || (qi::lit(":-") > (( caspElement | Base::bodyLiteral ) % qi::char_(',')) )) >> qi::lit('.') ) [ Sem::caspRule(sem) ];
 		caspElement
 		= (
 				(Base::term | caspVariable) >> +( caspOperator >> (Base::term | caspVariable)  )>> qi::eps
@@ -635,9 +694,9 @@ public:
 	CASPParserModuleGrammarPtr grammarModule;
 
 
-	CASPParserModule(ProgramCtx& ctx):
+	CASPParserModule(ProgramCtx& ctx,CPVariableAndConnection& cpVariableAndConnection,bool cspGraphLearning):
 		HexParserModule(moduletype),
-		sem(ctx)
+		sem(ctx,cpVariableAndConnection,cspGraphLearning)
 	{
 		LOG(INFO,"constructed CASPParserModule");
 	}
@@ -660,7 +719,7 @@ std::vector<HexParserModulePtr>	CASPPlugin::createParserModules(ProgramCtx& ctx)
 	CASPPlugin::CtxData& ctxdata = ctx.getPluginData<CASPPlugin>();
 	if( ctxdata.enabled )
 	{
-		ret.push_back(HexParserModulePtr(new CASPParserModule<HexParserModule::TOPLEVEL>(ctx)));
+		ret.push_back(HexParserModulePtr(new CASPParserModule<HexParserModule::TOPLEVEL>(ctx,cpVariableAndConnection,cspGraphLearning)));
 	}
 	return ret;
 }
@@ -668,7 +727,7 @@ std::vector<HexParserModulePtr>	CASPPlugin::createParserModules(ProgramCtx& ctx)
 std::vector<PluginAtomPtr> CASPPlugin::createAtoms(ProgramCtx&) const
 {
 	std::vector<PluginAtomPtr> ret;
-	ret.push_back(PluginAtomPtr(new ConsistencyAtom(_learningProcessor, _simpleParser), PluginPtrDeleter<PluginAtom>()));
+	ret.push_back(PluginAtomPtr(new ConsistencyAtom(_learningProcessor, _simpleParser,cpVariableAndConnection,cspGraphLearning), PluginPtrDeleter<PluginAtom>()));
 	return ret;
 }
 DLVHEX_NAMESPACE_END

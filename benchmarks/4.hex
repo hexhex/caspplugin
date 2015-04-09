@@ -1,4 +1,4 @@
-$dom(0..5000).
+$domain(0..5000).
 
 file("4.rdf").
 
@@ -10,7 +10,7 @@ equality_at_least_two(X) :- filename(F), &rdf [F](X, "equality", Y1), &rdf [F](X
 
 
 % The sum should contain exactly two elements
-:- filename(F), &rdf [F](X, "sum", Y1), &rdf [F](X, "sum", Y2), &rdf [F](X, "sum", Y3), Y1 != Y2, Y1 ! = Y3, Y2 ! = Y3.
+:- filename(F), &rdf [F](X, "sum", Y1), &rdf [F](X, "sum", Y2), &rdf [F](X, "sum", Y3), Y1 != Y2, Y1 != Y3, Y2 != Y3.
 sum_at_least_two(X) :- filename(F), &rdf [F](X, "sum", Y1), &rdf [F](X, "sum", Y2), Y1 != Y2.
 
 :- filename(F ), &rdf [F](X, "sum", Y), not sum_at_least_two(X).
@@ -25,5 +25,5 @@ difference_at_least_two(X) :- filename(F), &rdf [F](X, "difference", Y1), &rdf [
 
 % Expression consistency
 X $== Y $+ Z :- filename(F), &rdf [F ](X, "sum", Y), &rdf [F](X, "sum", Z).
-X $== Y $− Z :- filename(F), &rdf [F ](X, "difference", Y ), &rdf [F](X, "difference", Z).
+X $== Y $- Z :- filename(F), &rdf [F ](X, "difference", Y ), &rdf [F](X, "difference", Z).
 Y $== Z :- filename(F), &rdf [F](X, "equality", Y), &rdf [F](X, "equality", Z).

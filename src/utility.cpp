@@ -8,6 +8,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string.hpp>
 
+#include <iostream>
 using namespace std;
 
 /**
@@ -15,6 +16,7 @@ using namespace std;
  */
 bool isComparisonOperator(string s)
 {
+	s=removeQuotes(s);
 	return s=="=="||s==">="||s=="<="||s==">"||s=="<";
 }
 

@@ -2,8 +2,8 @@
 
 $domain(0..10000).
 
-posx(X) :- square(X,S), area(W,H), X $<= W-S .
-posy(X) :- square(X,S), area(W,H), X $<= H-S.
+posx(X) :- square(X,S), area(W,H), X $<= W$-S .
+posy(X) :- square(X,S), area(W,H), X $<= H$-S.
 
 intersectx(X1,X2) :- square(X1,S1), square(X2,S2), posx(X1), posx(X2), X1 $<= X2,     X1$+S1$>X2, X1 != X2.
 intersectx(X1,X2) :- square(X1,S1), square(X2,S2), posx(X1), posx(X2), X1 $< X2$+S2,  X1$+S1$>X2$+S2, X1 != X2.

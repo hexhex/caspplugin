@@ -3,10 +3,13 @@
 using namespace casp;
 
 ConsistencyAtom::ConsistencyAtom(boost::shared_ptr<LearningProcessor> learningProcessor,
-		boost::shared_ptr<SimpleParser> simpleParser) :
+		boost::shared_ptr<SimpleParser> simpleParser,const CPVariableAndConnection& cpVariableAndConnection,bool cspGraphLearning) :
 		PluginAtom( "casp", 0),
 		_learningProcessor(learningProcessor),
-		_simpleParser(simpleParser),_idSaved(false)
+		_simpleParser(simpleParser),_idSaved(false),
+		_cpVariables(cpVariableAndConnection.cpVariable),
+		_possibleConflictCpVariable(cpVariableAndConnection.possibleConflictCpVariable),
+		_cspGraphLearning(cspGraphLearning)
 {
 	// This add predicates for all input parameters
 	for (int i = 0; i < 6; i++)
@@ -18,6 +21,8 @@ ConsistencyAtom::ConsistencyAtom(boost::shared_ptr<LearningProcessor> learningPr
 
 void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContainerPtr nogoods) throw (PluginError)
 {
+	SetID toCheck;
+
 	RegistryPtr registry = getRegistry();
 	std::vector<std::string> expressions;
 	std::vector<OrdinaryAtom> sumData;
@@ -45,11 +50,30 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 
 		if (atom.tuple[0]==_exprID) {
 			expressions.push_back(getExpressionFromID(registry,atom,false));
-			atomIds.push_back(registry->ogatoms.getIDByTuple(atom.tuple));
+			ID atomID=registry->ogatoms.getIDByTuple(atom.tuple);
+			atomIds.push_back(atomID);
+			if(_cspGraphLearning && _possibleConflictCpVariable.find(atomID)!=_possibleConflictCpVariable.end())
+			{
+				set< SetID* > s=_possibleConflictCpVariable.at(atomID);
+				for( set<SetID*>::iterator it=s.begin();it!=s.end();++it)
+				{
+					toCheck.insert((*it)->begin(),(*it)->end());
+				}
+			}
 		}
 		else if (atom.tuple[0]==_notExprID) {
 			expressions.push_back(getExpressionFromID(registry,atom,true));
-			atomIds.push_back(registry->ogatoms.getIDByTuple(atom.tuple));
+			ID atomID=registry->ogatoms.getIDByTuple(atom.tuple);
+			atomIds.push_back(atomID);
+			// if the atom doesn't contain ASP variables insert all atom that are possible conflict
+			if(_cspGraphLearning && _possibleConflictCpVariable.find(atomID)!=_possibleConflictCpVariable.end())
+			{
+				set< SetID* > s=_possibleConflictCpVariable.at(atomID);
+				for( set<SetID*>::iterator it=s.begin();it!=s.end();++it)
+				{
+					toCheck.insert((*it)->begin(),(*it)->end());
+				}
+			}
 		}
 		else if (atom.tuple[0]==_domID) {
 			definedDomain=true;
@@ -68,7 +92,7 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 	if(!definedDomain)
 		throw dlvhex::PluginError("No domain specified");
 
-	// Call gecode solver
+//	 Call gecode solver
 	GecodeSolver* solver = new GecodeSolver(registry,sumData,domainMinValue, domainMaxValue, globalConstraintName, globalConstraintValue, _simpleParser);
 	solver->propagate(expressions);
 
@@ -79,7 +103,7 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 	if (solutions.next()) {
 		Tuple out;
 		answer.get().push_back(out);
-		tryToLearnMore(registry,query.assigned,nogoods,expressions,atomIds,sumData,domainMinValue,domainMaxValue,globalConstraintName,globalConstraintValue);
+		tryToLearnMore(registry,query.assigned,nogoods,expressions,atomIds,sumData,domainMinValue,domainMaxValue,globalConstraintName,globalConstraintValue,toCheck);
 	}
 	else if (nogoods != 0){ // otherwise we need to learn IIS from it
 		GecodeSolver* otherSolver = new GecodeSolver(registry,sumData, domainMinValue,domainMaxValue, globalConstraintName, globalConstraintValue, _simpleParser);
@@ -91,7 +115,7 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 
 
 void ConsistencyAtom::tryToLearnMore(RegistryPtr& registry,const InterpretationConstPtr& assigned,NogoodContainerPtr& nogoods,
-		vector<string>& expressions,vector<ID>& atomIds,vector<OrdinaryAtom> &sumData,int domainMinValue,int domainMaxValue,string& globalConstraintName,string& globalConstraintValue)
+		vector<string>& expressions,vector<ID>& atomIds,vector<OrdinaryAtom> &sumData,int domainMinValue,int domainMaxValue,string& globalConstraintName,string& globalConstraintValue,SetID& toCheck)
 {
 	_pm.updateMask();
 	Interpretation::TrueBitIterator it, it_end;
@@ -105,12 +129,14 @@ void ConsistencyAtom::tryToLearnMore(RegistryPtr& registry,const InterpretationC
 			continue;
 		}
 		const OrdinaryAtom& atom=_pm.mask()->getAtomToBit(it);
+		ID atomID=registry->ogatoms.getIDByAddress(*it);
 
-		if (atom.tuple[0]==_exprID) {
+		if (atom.tuple[0]==_exprID && (!_cspGraphLearning || _cpVariables.find(atomID)==_cpVariables.end() || toCheck.find(atomID)!=toCheck.end())) {
 			expressions.push_back(getExpressionFromID(registry,atom,false));
 			atomIds.push_back(registry->ogatoms.getIDByTuple(atom.tuple));
+
 		}
-		else if (atom.tuple[0]==_notExprID) {
+		else if (atom.tuple[0]==_notExprID && (!_cspGraphLearning || _cpVariables.find(atomID)==_cpVariables.end() || toCheck.find(atomID)!=toCheck.end())) {
 			expressions.push_back(getExpressionFromID(registry,atom,true));
 			atomIds.push_back(registry->ogatoms.getIDByTuple(atom.tuple));
 		}

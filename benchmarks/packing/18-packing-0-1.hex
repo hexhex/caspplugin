@@ -2,8 +2,8 @@
 
 $domain(0..10000).
 
-posx(X) $<= W-S :- square(X,S), area(W,H).
-posy(X) $<= H-S :- square(X,S), area(W,H).
+posx(X) $<= W$-S :- square(X,S), area(W,H).
+posy(X) $<= H$-S :- square(X,S), area(W,H).
 
 %very simple approach, checking edges
 
