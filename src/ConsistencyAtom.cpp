@@ -34,7 +34,19 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 	std::string globalConstraintValue = "";
 
 	std::pair<Interpretation::TrueBitIterator, Interpretation::TrueBitIterator>
-	trueAtoms = query.assigned->trueBits();
+		trueAtoms ;
+	InterpretationConstPtr toUse;
+	if(query.assigned!=NULL)
+	{
+		trueAtoms= query.assigned->trueBits();
+		toUse=query.assigned;
+	}
+	else
+	{
+		toUse=query.interpretation;
+		trueAtoms= query.interpretation->trueBits();
+	}
+
 
 	vector<ID> atomIds;
 	if(!idSaved)
@@ -42,7 +54,7 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 
 	// Iterate over all input interpretation
 	for (Interpretation::TrueBitIterator it = trueAtoms.first; it != trueAtoms.second; it++) {
-		const OrdinaryAtom &atom = query.assigned->getAtomToBit(it);
+		const OrdinaryAtom &atom = toUse->getAtomToBit(it);
 		Term name = registry->terms.getByID(atom.tuple[0]);
 		if(!query.interpretation->getFact(*it)){
 			continue;
@@ -104,7 +116,8 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 	if (solutions.next()) {
 		Tuple out;
 		answer.get().push_back(out);
-		tryToLearnMore(registry,query.assigned,nogoods,expressions,atomIds,sumData,domainMinValue,domainMaxValue,globalConstraintName,globalConstraintValue,toCheck);
+		if(query.assigned!=NULL)
+			tryToLearnMore(registry,query.assigned,nogoods,expressions,atomIds,sumData,domainMinValue,domainMaxValue,globalConstraintName,globalConstraintValue,toCheck);
 	}
 	else if (nogoods != 0){ // otherwise we need to learn IIS from it
 		GecodeSolver* otherSolver = new GecodeSolver(registry,sumData, domainMinValue,domainMaxValue, globalConstraintName, globalConstraintValue, simpleParser);

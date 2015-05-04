@@ -28,9 +28,9 @@ void CASPPlugin::printUsage(std::ostream& o) const
 	o << "                   range       - Range filtering learning." << endl;
 	o << "                   cc          - Connected component filtering learning." << endl;
 	o << "                   wcc         - Weighted connected component filtering learning." << endl;
-	o << "     --cspgraphlearning"<<endl;
+	o << "     --cspgraphlearning=[false,true]"<<endl;
 	o << "                   Enable csp graph learning(disabled by default)." << endl;
-	o << "                   Enable only if --cspleanirng!=none" << endl;
+	o << "                   Enable only if --cspleanirng!=none and --eaevalheuristics=always" << endl;
 }
 void CASPPlugin::
 processOptions(std::list<const char*>& pluginOptions, ProgramCtx& ctx)
@@ -78,9 +78,11 @@ processOptions(std::list<const char*>& pluginOptions, ProgramCtx& ctx)
 			it = pluginOptions.erase(it);
 		}
 
-		else if(option.find("--cspgraphlearning")!= std::string::npos)
+		else if(option.find("--cspgraphlearning=")!= std::string::npos)
 		{
-			cspGraphLearning=true;
+			string flag = option.substr(std::string("--cspgraphlearning=").length());
+			if(flag=="true")
+				cspGraphLearning=true;
 			it= pluginOptions.erase(it);
 		}
 		else
