@@ -24,9 +24,9 @@ square(1,31).
 square(2,30).
 square(3,12).
 square(4,10).
-square(5,20).
-square(6,5).
-square(7,26).
+%square(5,20).
+%square(6,5).
+%square(7,26).
 %square(8,17).
 %square(9,12).
 %square(10,12).

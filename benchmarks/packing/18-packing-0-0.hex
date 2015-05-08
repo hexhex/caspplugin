@@ -32,9 +32,9 @@ square(9,10).
 square(10,5).
 square(11,4).
 square(12,25).
-square(13,14).
-square(14,15).
-square(15,21).
+%square(13,14).
+%square(14,15).
+%square(15,21).
 %square(16,27).
 %square(17,14).
 %square(18,4).
