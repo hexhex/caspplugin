@@ -19,16 +19,7 @@ task(16,4).
 task(17,7).
 task(18,2).
 task(19,1).
-task(20,7).
-task(21,4).
-task(22,3).
-task(23,1).
-task(24,7).
-task(25,2).
-task(26,6).
-task(27,6).
-task(28,5).
-task(29,8).
+
 
 worker(1,7).
 worker(2,6).
@@ -47,18 +38,7 @@ worker(14,5).
 worker(15,4).
 worker(16,1).
 worker(17,8).
-worker(18,9).
-worker(19,7).
-worker(20,9).
-worker(21,9).
-worker(22,5).
-worker(23,4).
-worker(24,2).
-worker(25,5).
-worker(26,0).
-worker(27,3).
-worker(28,1).
-worker(29,7).
+
 
 task_assigned(X,Y) :- not task_unassigned(X,Y), task(X, Z), worker(Y,T). 
 task_unassigned(X,Y) :- not task_assigned(X,Y), task(X, Z), worker(Y,T). 
