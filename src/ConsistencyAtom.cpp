@@ -2,15 +2,17 @@
 #include <dlvhex2/OrdinaryAtomTable.h>
 using namespace casp;
 
-ConsistencyAtom::ConsistencyAtom(boost::shared_ptr<LearningProcessor> learningProcessor,
-		boost::shared_ptr<SimpleParser> simpleParser,const CPVariableAndConnection& cpVariableAndConnection,bool cspGraphLearning) :
+ConsistencyAtom::ConsistencyAtom(boost::shared_ptr<LearningProcessor> learningProcessor_,
+		boost::shared_ptr<SimpleParser> simpleParser_,const CPVariableAndConnection& cpVariableAndConnection_,bool cspGraphLearning_,bool cspAnticipateLearning_) :
 		PluginAtom( "casp", 0),
-		learningProcessor(learningProcessor),
-		simpleParser(simpleParser),
+		learningProcessor(learningProcessor_),
+		backwardlearningProcessor(new BackwardLearningProcessor(simpleParser_)),
+		simpleParser(simpleParser_),
 		idSaved(false),
-		cpVariables(cpVariableAndConnection.cpVariable),
-		possibleConflictCpVariable(cpVariableAndConnection.possibleConflictCpVariable),
-		cspGraphLearning(cspGraphLearning)
+		cpVariables(cpVariableAndConnection_.cpVariable),
+		possibleConflictCpVariable(cpVariableAndConnection_.possibleConflictCpVariable),
+		cspGraphLearning(cspGraphLearning_),
+		cspAnticipateLearning(cspAnticipateLearning_)
 {
 	// This add predicates for all input parameters
 	for (int i = 0; i < 6; i++)
@@ -116,8 +118,8 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 	if (solutions.next()) {
 		Tuple out;
 		answer.get().push_back(out);
-		if(query.assigned!=NULL)
-			tryToLearnMore(registry,query.assigned,nogoods,expressions,atomIds,sumData,domainMinValue,domainMaxValue,globalConstraintName,globalConstraintValue,toCheck);
+		if(cspAnticipateLearning && query.assigned!=NULL)
+			anticipateLearning(registry,query.assigned,nogoods,expressions,atomIds,sumData,domainMinValue,domainMaxValue,globalConstraintName,globalConstraintValue,toCheck);
 	}
 	else if (nogoods != 0){ // otherwise we need to learn IIS from it
 		GecodeSolver* otherSolver = new GecodeSolver(registry,sumData, domainMinValue,domainMaxValue, globalConstraintName, globalConstraintValue, simpleParser);
@@ -128,7 +130,7 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 }
 
 
-void ConsistencyAtom::tryToLearnMore(RegistryPtr& registry,const InterpretationConstPtr& assigned,NogoodContainerPtr& nogoods,
+void ConsistencyAtom::anticipateLearning(RegistryPtr& registry,const InterpretationConstPtr& assigned,NogoodContainerPtr& nogoods,
 		vector<string>& expressions,vector<ID>& atomIds,vector<OrdinaryAtom> &sumData,int domainMinValue,int domainMaxValue,string& globalConstraintName,string& globalConstraintValue,Interpretation& toCheck)
 {
 	pm.updateMask();
@@ -165,7 +167,7 @@ void ConsistencyAtom::tryToLearnMore(RegistryPtr& registry,const InterpretationC
 		{
 			GecodeSolver* otherSolver = new GecodeSolver(registry,sumData, domainMinValue,domainMaxValue, globalConstraintName, globalConstraintValue, simpleParser);
 			//try to learn no goods
-			learningProcessor->learnNogoods(nogoods,expressions,atomIds,otherSolver);
+			backwardlearningProcessor->learnNogoods(nogoods,expressions,atomIds,otherSolver);
 			delete otherSolver;
 		}
 		delete solver;

@@ -23,7 +23,7 @@ max_square_num(19).
 square(1,31).
 square(2,30).
 square(3,12).
-%square(4,10).
+square(4,10).
 %square(5,20).
 %square(6,5).
 %square(7,26).

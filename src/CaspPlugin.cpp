@@ -10,7 +10,8 @@ namespace qi = boost::spirit::qi;
 CASPPlugin::CASPPlugin() :
 				_simpleParser(new SimpleParser()),
 				_learningProcessor(new NoLearningProcessor(_simpleParser)),
-				cspGraphLearning(false)
+				cspGraphLearning(false),
+				cspAnticipateLearning(false)
 {
 	setNameVersion(PACKAGE_TARNAME,CASPPLUGIN_VERSION_MAJOR,CASPPLUGIN_VERSION_MINOR,CASPPLUGIN_VERSION_MICRO);
 }
@@ -30,7 +31,10 @@ void CASPPlugin::printUsage(std::ostream& o) const
 	o << "                   wcc         - Weighted connected component filtering learning." << endl;
 	o << "     --cspgraphlearning=[false,true]"<<endl;
 	o << "                   Enable csp graph learning(disabled by default)." << endl;
-	o << "                   Enable only if --cspleanirng!=none and --eaevalheuristics=always" << endl;
+	o << "                   Enable only if --eaevalheuristics=always" << endl;
+	o << "     --cspanticipatelearning=[false,true]"<<endl;
+	o << "                   Enable anticipate learning(disabled by default)." << endl;
+	o << "                   Enable only if --eaevalheuristics=always" << endl;
 }
 void CASPPlugin::
 processOptions(std::list<const char*>& pluginOptions, ProgramCtx& ctx)
@@ -85,6 +89,13 @@ processOptions(std::list<const char*>& pluginOptions, ProgramCtx& ctx)
 				cspGraphLearning=true;
 			it= pluginOptions.erase(it);
 		}
+		else if(option.find("--cspanticipatelearning=")!= std::string::npos)
+				{
+					string flag = option.substr(std::string("--cspanticipatelearning=").length());
+					if(flag=="true")
+						cspAnticipateLearning=true;
+					it= pluginOptions.erase(it);
+				}
 		else
 			it++;
 	}
@@ -738,7 +749,7 @@ std::vector<HexParserModulePtr>	CASPPlugin::createParserModules(ProgramCtx& ctx)
 std::vector<PluginAtomPtr> CASPPlugin::createAtoms(ProgramCtx&) const
 {
 	std::vector<PluginAtomPtr> ret;
-	ret.push_back(PluginAtomPtr(new ConsistencyAtom(_learningProcessor, _simpleParser,cpVariableAndConnection,cspGraphLearning), PluginPtrDeleter<PluginAtom>()));
+	ret.push_back(PluginAtomPtr(new ConsistencyAtom(_learningProcessor, _simpleParser,cpVariableAndConnection,cspGraphLearning,cspAnticipateLearning), PluginPtrDeleter<PluginAtom>()));
 	return ret;
 }
 DLVHEX_NAMESPACE_END

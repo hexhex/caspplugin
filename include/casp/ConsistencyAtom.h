@@ -53,7 +53,7 @@ public:
 	 * Simple constuctor, which accepts option for IIS learning
 	 */
 	ConsistencyAtom(boost::shared_ptr<LearningProcessor> learningProcessor,
-			boost::shared_ptr<SimpleParser> simpleParser,const CPVariableAndConnection& cpVariableAndConnection,bool cspGraphLearning);
+			boost::shared_ptr<SimpleParser> simpleParser,const CPVariableAndConnection& cpVariableAndConnection,bool cspGraphLearning,bool cspAnticipateLearning);
 	/**
 	 * @brief Retrieves answer for query.
 	 * Should not be called, as learning is enabled.
@@ -70,8 +70,10 @@ public:
 
 private:
 	boost::shared_ptr<LearningProcessor> learningProcessor;
+	boost::shared_ptr<LearningProcessor> backwardlearningProcessor;
 	boost::shared_ptr<SimpleParser> simpleParser;
 
+	bool cspAnticipateLearning;
 	bool cspGraphLearning;
 	const Interpretation& cpVariables;
 	const MapPossibleConflict& possibleConflictCpVariable;
@@ -88,7 +90,7 @@ private:
 	// store constraint atom id
 	void storeID( RegistryPtr& registry);
 
-	void tryToLearnMore(RegistryPtr& reg,const InterpretationConstPtr& assigned,NogoodContainerPtr& nogoods,vector<string>& expression,vector<ID>& atomIds,
+	void anticipateLearning(RegistryPtr& reg,const InterpretationConstPtr& assigned,NogoodContainerPtr& nogoods,vector<string>& expression,vector<ID>& atomIds,
 			vector<OrdinaryAtom> &sumData,int domainMinValue,int domainMaxValue,string& globalConstraintName,string& globalConstraintValue,Interpretation& toCheck);
 
 	string getExpressionFromID(RegistryPtr& reg, const OrdinaryAtom& atom,bool replaceReversibleOperator );

@@ -89,6 +89,7 @@ private:
 	boost::shared_ptr<LearningProcessor> _learningProcessor;
 
 	bool cspGraphLearning;
+	bool cspAnticipateLearning;
 
 	CPVariableAndConnection cpVariableAndConnection;
 
