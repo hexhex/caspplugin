@@ -1,5 +1,6 @@
 #include "casp/ConsistencyAtom.h"
 #include <dlvhex2/OrdinaryAtomTable.h>
+#include <cmath>
 using namespace casp;
 
 ConsistencyAtom::ConsistencyAtom(boost::shared_ptr<LearningProcessor> learningProcessor_,
@@ -24,6 +25,8 @@ ConsistencyAtom::ConsistencyAtom(boost::shared_ptr<LearningProcessor> learningPr
 
 void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContainerPtr nogoods) throw (PluginError)
 {
+	static int count=0;
+	static double exp=0;
 	Interpretation toCheck;
 
 	RegistryPtr registry = getRegistry();
@@ -118,8 +121,11 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 	if (solutions.next()) {
 		Tuple out;
 		answer.get().push_back(out);
-		if(cspAnticipateLearning && query.assigned!=NULL)
+		if(++count==pow(2,exp) && cspAnticipateLearning && query.assigned!=NULL)
+		{
 			anticipateLearning(registry,query.assigned,nogoods,expressions,atomIds,sumData,domainMinValue,domainMaxValue,globalConstraintName,globalConstraintValue,toCheck);
+			exp++;
+		}
 	}
 	else if (nogoods != 0){ // otherwise we need to learn IIS from it
 		GecodeSolver* otherSolver = new GecodeSolver(registry,sumData, domainMinValue,domainMaxValue, globalConstraintName, globalConstraintValue, simpleParser);
