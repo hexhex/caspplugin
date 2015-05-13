@@ -8,10 +8,10 @@ plugin_LTLIBRARIES = libdlvhexplugin-casp.la
 # add all sources of your plugin
 #
 libdlvhexplugin_casp_la_SOURCES = \
-		utility.cpp \
-		gecodesolver.cpp \
-		simpleparser.cpp \
-		learningprocessor.cpp \
+		Utility.cpp \
+		GecodeSolver.cpp \
+		SimpleParser.cpp \
+		LearningProcessor.cpp \
 		CaspPlugin.cpp \
 		ConsistencyAtom.cpp 
 

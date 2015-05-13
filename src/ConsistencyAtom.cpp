@@ -1,3 +1,24 @@
+/* CASPPlugin -- Pluging for dlvhex - Answer-Set Programming with constraint programming
+ * Copyright (C) 2013 Oleksandr Stashuk
+ * Copyright (C) 2015 Alessandro Francesco De Rosis
+ *
+ * This file is part of caspplugin.
+ *
+ * CASPPlugin is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation; either version 2.1 of
+ * the License, or (at your option) any later version.
+ *
+ * CASPPlugin is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with dlvhex; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA.
+ */
 #include "casp/ConsistencyAtom.h"
 #include <dlvhex2/OrdinaryAtomTable.h>
 #include <cmath>
@@ -25,10 +46,7 @@ ConsistencyAtom::ConsistencyAtom(boost::shared_ptr<LearningProcessor> learningPr
 
 void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContainerPtr nogoods) throw (PluginError)
 {
-	static int count=0;
-	static double exp=0;
 	Interpretation toCheck;
-
 	RegistryPtr registry = getRegistry();
 	std::vector<std::string> expressions;
 	std::vector<OrdinaryAtom> sumData;
@@ -121,11 +139,8 @@ void ConsistencyAtom::retrieve(const Query& query, Answer& answer, NogoodContain
 	if (solutions.next()) {
 		Tuple out;
 		answer.get().push_back(out);
-		if(++count==pow(2,exp) && cspAnticipateLearning && query.assigned!=NULL)
-		{
+		if(cspAnticipateLearning && query.assigned!=NULL)
 			anticipateLearning(registry,query.assigned,nogoods,expressions,atomIds,sumData,domainMinValue,domainMaxValue,globalConstraintName,globalConstraintValue,toCheck);
-			exp++;
-		}
 	}
 	else if (nogoods != 0){ // otherwise we need to learn IIS from it
 		GecodeSolver* otherSolver = new GecodeSolver(registry,sumData, domainMinValue,domainMaxValue, globalConstraintName, globalConstraintValue, simpleParser);

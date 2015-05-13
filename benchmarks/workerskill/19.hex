@@ -136,14 +136,6 @@ task(133,15).
 task(134,317).
 task(135,67).
 task(136,86).
-task(137,140).
-task(138,215).
-task(139,131).
-task(140,44).
-task(141,166).
-task(142,208).
-task(143,45).
-task(144,304).
 
 worker(1,38).
 worker(2,304).
@@ -280,15 +272,6 @@ worker(132,14).
 worker(133,182).
 worker(134,262).
 worker(135,274).
-worker(136,247).
-worker(137,0).
-worker(138,140).
-worker(139,212).
-worker(140,256).
-worker(141,97).
-worker(142,309).
-worker(143,218).
-worker(144,154).
 
 task_assigned(X,Y) :- not task_unassigned(X,Y), task(X, Z), worker(Y,T). 
 task_unassigned(X,Y) :- not task_assigned(X,Y), task(X, Z), worker(Y,T). 
