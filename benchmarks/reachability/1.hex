@@ -1,0 +1,17 @@
+$domain(0..7).
+destination(1,0).
+destination(2,0).
+
+car(1,0).
+car(2,0).
+
+carAssignedToDestination(ID_C,ID_D)|carNotAssignedToDestination(ID_C,ID_D):-car(ID_C,_),destination(ID_D,_).
+
+
+:-carAssignedToDestination(C,D),carAssignedToDestination(C1,D),C!=C1.
+:-carAssignedToDestination(C,D),carAssignedToDestination(C,D1),D!=D1.
+
+:- carAssignedToDestination(C,D), destination(D, TimeToReachDestination), car(C,TimeAvailableToCar),TimeAvailableToCar $< TimeToReachDestination. 
+
+reachableDestinations(D):-carAssignedToDestination(_,D).
+:-destination(D,_),not reachableDestinations(D).
