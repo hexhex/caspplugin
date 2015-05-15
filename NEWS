@@ -5,4 +5,4 @@ Support for custom syntax using '$' sign.
 Gecode support for $=, $<, $> operators.
 
 dlvhex-caspplugin 1.0.0 - 15 May 2015
-General refactoring and improves learning process
+General refactoring, added functions to improve learning processor
