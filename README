@@ -1,1 +1,15 @@
 dlvhex-caspplugin -- Constraint ASP plugin for dlvhex
+
+====  
+
+Installation
+------------
+Requirements:
+- dlvhex
+- gecode
+
+Build and install from source, standard approach:
+- ./bootstrap
+- ./configure
+- ./make
+- ./make install
