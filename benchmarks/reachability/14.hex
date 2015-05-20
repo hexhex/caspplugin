@@ -61,7 +61,8 @@ car(28,7).
 car(29,6).
 car(30,72).
 
-carAssignedToDestination(ID_C,ID_D)|carNotAssignedToDestination(ID_C,ID_D):-car(ID_C,_),destination(ID_D,_).
+carAssignedToDestination(ID_C,ID_D) :- car(ID_C,_), destination(ID_D,_), not carNotAssignedToDestination(ID_C,ID_D).
+carNotAssignedToDestination(ID_C,ID_D) :- car(ID_C,_), destination(ID_D,_), not carAssignedToDestination(ID_C,ID_D).
 
 
 :-carAssignedToDestination(C,D),carAssignedToDestination(C1,D),C!=C1.

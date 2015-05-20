@@ -22,7 +22,8 @@ car(8,0).
 car(9,3).
 car(10,3).
 car(11,4).
-carAssignedToDestination(ID_C,ID_D)|carNotAssignedToDestination(ID_C,ID_D):-car(ID_C,_),destination(ID_D,_).
+carAssignedToDestination(ID_C,ID_D) :- car(ID_C,_), destination(ID_D,_), not carNotAssignedToDestination(ID_C,ID_D).
+carNotAssignedToDestination(ID_C,ID_D) :- car(ID_C,_), destination(ID_D,_), not carAssignedToDestination(ID_C,ID_D).
 
 
 :-carAssignedToDestination(C,D),carAssignedToDestination(C1,D),C!=C1.
