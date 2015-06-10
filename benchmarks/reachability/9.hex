@@ -1,37 +1,42 @@
 
-$domain(0..105).
-destination(1,32).
-destination(2,57).
-destination(3,44).
-destination(4,52).
-destination(5,20).
-destination(6,19).
-destination(7,50).
-destination(8,18).
-destination(9,28).
-destination(10,16).
-destination(11,48).
-destination(12,50).
+$domain(0..74).
+destination(1,11).
+destination(2,1).
+destination(3,13).
+destination(4,5).
+destination(5,15).
+destination(6,15).
+destination(7,10).
+destination(8,0).
+destination(9,12).
+destination(10,8).
+destination(11,4).
+destination(12,7).
+destination(13,16).
+destination(14,15).
+destination(15,12).
+destination(16,11).
+destination(17,2).
+destination(18,1).
+destination(19,9).
 
 
-car(1,5).
-car(2,14).
-car(3,44).
-car(4,34).
-car(5,10).
-car(6,7).
-car(7,32).
+car(1,3).
+car(2,2).
+car(3,0).
+car(4,12).
+car(5,7).
+car(6,13).
+car(7,0).
 car(8,1).
-car(9,16).
-car(10,40).
-car(11,17).
-car(12,57).
-car(13,25).
-car(14,2).
-car(15,58).
-car(16,31).
-car(17,32).
-car(18,15).
+car(9,8).
+car(10,1).
+car(11,15).
+car(12,12).
+car(13,3).
+car(14,3).
+car(15,16).
+car(16,13).
 
 carAssignedToDestination(ID_C,ID_D) :- car(ID_C,_), destination(ID_D,_), not carNotAssignedToDestination(ID_C,ID_D).
 carNotAssignedToDestination(ID_C,ID_D) :- car(ID_C,_), destination(ID_D,_), not carAssignedToDestination(ID_C,ID_D).

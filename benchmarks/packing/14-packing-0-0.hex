@@ -18,26 +18,21 @@ intersectx(X1,X2) :- intersectx(X2,X1), square(X1,S1), square(X2,S2).
 intersecty(X1,X2) :- intersecty(X2,X1), square(X1,S1), square(X2,S2).
 :- intersectx(X1,X2), intersecty(X1,X2).
 %:- square(X1,S1), square(X2,S2), X1 != X2, posx(X1) $<= posx(X2), posx(X1)+S1 $> posx(X2), posy(X1) $<= posy(X2), posy(X1)+S1 $> posy(X2).
-area(200,100).
-max_square_num(21).
-square(1,58).
-square(2,95).
-square(3,18).
-square(4,26).
-%square(5,32).
-%square(6,5).
-%square(7,16).
-%square(8,14).
-%square(9,34).
-%square(10,16).
-%square(11,12).
+area(100,50).
+max_square_num(16).
+square(1,34).
+square(2,31).
+square(3,16).
+square(4,8).
+%square(5,14).
+%square(6,16).
+%square(7,27).
+%square(8,17).
+%square(9,11).
+%square(10,5).
+%square(11,5).
 %square(12,6).
-%square(13,13).
-%square(14,8).
-%square(15,5).
-%square(16,5).
-%square(17,8).
-%square(18,10).
-%square(19,6).
-%square(20,8).
-%square(21,14).
+%square(13,8).
+%square(14,4).
+%square(15,4).
+%square(16,4).
